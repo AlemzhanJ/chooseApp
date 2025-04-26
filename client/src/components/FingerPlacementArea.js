@@ -186,12 +186,13 @@ function FingerPlacementArea({
                   const nextCountdown = prevCountdown - 1;
                   if (nextCountdown <= 0) {
                       console.log('Countdown finished, calling onReadyToSelect.');
+                      // Сбрасываем состояние ПЕРЕД вызовом колбэка
+                      setCountdown(null);
                       clearInterval(countdownTimerRef.current);
                       countdownTimerRef.current = null;
-                      // Вызываем колбэк с текущими пальцами
-                      // Небольшая задержка, чтобы 0 успел отобразиться
-                      setTimeout(() => onReadyToSelect(activeTouches.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y }))), 50);
-                      return 0;
+                       // Вызываем колбэк с текущими пальцами
+                      onReadyToSelect(activeTouches.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })));
+                      return null; // Возвращаем null, т.к. отсчет закончился
                   }
                   return nextCountdown;
               });

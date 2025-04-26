@@ -212,9 +212,9 @@
 .countdown-timer-container {
     width: 80%; /* Не на всю ширину */
     max-width: 300px;
-    height: 22px; /* Чуть выше */
+    height: 24px; /* Слегка увеличим высоту */
     background-color: #e9ecef;
-    border-radius: 11px;
+    border-radius: 12px; /* Синхронизируем с высотой */
     margin-top: 15px; /* Отступ от текста "Все пальцы на месте!" */
     position: relative;
     overflow: hidden;
@@ -224,8 +224,12 @@
 .countdown-timer-bar {
     height: 100%;
     background-color: #ffc107; /* Желтый */
-    border-radius: 11px;
+    border-radius: 12px; /* Синхронизируем */
     transition: width 0.5s linear; /* Плавное уменьшение */
+    position: absolute; /* Для z-index */
+    left: 0;
+    top: 0;
+    z-index: 1; /* Ниже текста */
 }
 
 .countdown-timer-text {
@@ -236,4 +240,6 @@
     color: #343a40; /* Темный текст для контраста с желтым */
     font-size: 0.9em;
     font-weight: bold;
+    z-index: 2; /* Выше полосы */
+    white-space: nowrap; /* Запрещаем перенос текста */
 } 
