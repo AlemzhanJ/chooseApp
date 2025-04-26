@@ -5,7 +5,7 @@
   text-align: center;
   /* Тень как у карточек */
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 5px 10px rgba(0, 0, 0, 0.04);
-  margin: 20px;
+  margin: 20px 0; /* Оставляем только вертикальные отступы */
   width: 90%;
   max-width: 500px;
 }
