@@ -1,12 +1,16 @@
 import axios from 'axios';
 
-// Базовый URL для API берется из proxy в package.json при разработке,
-// но для production может потребоваться явное указание.
-// const API_URL = process.env.REACT_APP_API_URL || '/api'; 
+// Пытаемся получить URL API из переменных окружения.
+// Если его нет (например, при локальной разработке без .env файла или если он не установлен на Vercel),
+// используем localhost.
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+// Логируем, какой URL используется, для отладки (будет видно в консоли браузера)
+console.log("API Client using baseURL:", API_URL);
 
 // Настройка экземпляра axios (опционально, но полезно для заголовков и т.д.)
 const apiClient = axios.create({
-  // baseURL: API_URL, // Можно использовать базовый URL
+  baseURL: API_URL, // Устанавливаем базовый URL
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,6 +21,7 @@ const apiClient = axios.create({
 // --- Game API --- 
 
 export const createGame = async (settings) => {
+  // Пути теперь должны быть относительными от baseURL, т.е. /api/games
   try {
     const response = await apiClient.post('/api/games', settings);
     return response.data;
@@ -48,7 +53,6 @@ export const startGameSelection = async (gameId, fingers) => {
 
 export const selectWinnerOrTaskPlayer = async (gameId) => {
   try {
-    // POST запрос без тела
     const response = await apiClient.post(`/api/games/${gameId}/select`);
     return response.data;
   } catch (error) {
@@ -71,9 +75,8 @@ export const updatePlayerStatus = async (gameId, fingerId, action) => {
 
 export const getRandomTask = async (difficulty = 'any') => {
   try {
-    // Передаем сложность как query parameter
     const response = await apiClient.get('/api/tasks/random', {
-      params: { difficulty: difficulty === 'any' ? undefined : difficulty }, // не передаем 'any'
+      params: { difficulty: difficulty === 'any' ? undefined : difficulty }, 
     });
     return response.data;
   } catch (error) {
