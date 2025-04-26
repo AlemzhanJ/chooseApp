@@ -122,76 +122,111 @@ exports.startGameSelection = async (req, res) => {
 // @route   POST /api/games/:gameId/select
 // @access  Public
 exports.selectWinnerOrTaskPlayer = async (req, res) => {
-  let gameToDelete = null; // Переменная для хранения ID игры для удаления
+  console.log(`[${new Date().toISOString()}] --- ENTERING selectWinnerOrTaskPlayer ---`);
+  console.log(`Game ID: ${req.params.gameId}`);
+  // Логируем тело запроса, если оно ожидается (хотя в текущей логике оно не используется)
+  // console.log("Request Body:", req.body); 
+  
+  let gameToDelete = null; 
   try {
     const gameId = req.params.gameId;
+    console.log(`Attempting to find game with ID: ${gameId}`);
     const game = await Game.findById(gameId);
 
-    if (!game) return res.status(404).json({ msg: 'Game not found' });
-    if (game.status !== 'selecting') return res.status(400).json({ msg: 'Game is not in selecting state' });
+    if (!game) {
+        console.log(`Game not found: ${gameId}`);
+        return res.status(404).json({ msg: 'Game not found' });
+    }
+    console.log(`Game found. Current status: ${game.status}`);
+    if (game.status !== 'selecting') {
+        console.log(`Invalid game status: ${game.status}`);
+        return res.status(400).json({ msg: 'Game is not in selecting state' });
+    }
 
     const activePlayers = game.players.filter(p => p.status === 'active');
-    if (activePlayers.length === 0) return res.status(400).json({ msg: 'No active players to select from' });
+    console.log(`Found ${activePlayers.length} active players.`);
+    if (activePlayers.length === 0) {
+        console.log('No active players found.');
+        return res.status(400).json({ msg: 'No active players to select from' });
+    }
 
     const randomIndex = Math.floor(Math.random() * activePlayers.length);
     const selectedPlayer = activePlayers[randomIndex];
     game.winnerFingerId = selectedPlayer.fingerId;
+    console.log(`Selected player fingerId: ${game.winnerFingerId}`);
 
     let responsePayload = {}; 
     game.currentTask = null;
 
     if (game.mode === 'simple') {
+      console.log('Mode: simple. Setting status to finished.');
       game.status = 'finished';
       const winner = game.players.find(p => p.fingerId === game.winnerFingerId);
       if (winner) winner.status = 'winner';
-      gameToDelete = game.id; // <--- Помечаем игру для удаления
+      gameToDelete = game.id; 
 
     } else if (game.mode === 'tasks') {
+      console.log('Mode: tasks. Setting status to task_assigned.');
       game.status = 'task_assigned';
       if (game.useAiTasks) {
-        // --- Используем AI --- 
+        console.log('Using AI tasks. Calling generateAiTaskService...');
         const generatedText = await generateAiTaskService(game.taskDifficulty);
+        console.log(`AI Task generated: ${generatedText ? 'Success' : 'Failure'}`);
         if (generatedText) {
             responsePayload.aiGeneratedTask = { text: generatedText, difficulty: game.taskDifficulty, isAiGenerated: true };
         } else {
              responsePayload.aiGeneratedTask = { text: "Не удалось сгенерировать задание с помощью ИИ.", difficulty: game.taskDifficulty, isAiGenerated: true, error: true };
         }
       } else {
-        // --- Используем БД --- 
+        console.log('Using DB tasks. Searching for tasks...');
         const taskFilter = {};
         if (game.taskDifficulty !== 'any') taskFilter.difficulty = game.taskDifficulty;
         const taskCount = await Task.countDocuments(taskFilter);
+        console.log(`Found ${taskCount} tasks in DB with filter:`, taskFilter);
         if (taskCount > 0) {
             const randomTaskIndex = Math.floor(Math.random() * taskCount);
             const randomTask = await Task.findOne(taskFilter).skip(randomTaskIndex);
-            if (randomTask) game.currentTask = randomTask._id;
+            if (randomTask) {
+                game.currentTask = randomTask._id;
+                console.log(`Assigned DB task ID: ${game.currentTask}`);
+            } else {
+                 console.log('Failed to fetch random task from DB.');
+            }
         } else {
             console.warn(`No tasks found in DB for difficulty: ${game.taskDifficulty}`);
-            // Если задач в БД нет, но режим с задачами, можно тоже вернуть AI-подобный объект ошибки
             responsePayload.aiGeneratedTask = { text: `Задания сложности '${game.taskDifficulty}' не найдены в базе.`, difficulty: game.taskDifficulty, isAiGenerated: false, error: true };
         }
       }
     }
 
+    console.log('Attempting to save game changes...');
     await game.save();
+    console.log('Game saved successfully. Attempting to repopulate...');
     const populatedGame = await Game.findById(game.id).populate('currentTask');
+    console.log('Game repopulated. Sending response to client...');
     
-    // Отправляем ответ клиенту ПЕРЕД удалением
     res.json({ game: populatedGame, ...responsePayload });
+    console.log('Response sent.');
 
-    // Если игра была помечена для удаления, удаляем ее
     if (gameToDelete) {
         console.log(`Deleting finished simple game: ${gameToDelete}`);
-        // Запускаем удаление в фоне, не ждем завершения
         Game.findByIdAndDelete(gameToDelete).exec(); 
     }
 
   } catch (err) {
-    console.error('Error selecting winner/task player:', err.message);
-    if (err.kind === 'ObjectId') {
-        return res.status(404).json({ msg: 'Game not found' });
+    // --- Улучшенное логирование ошибок --- 
+    console.error(`[${new Date().toISOString()}] --- ERROR in selectWinnerOrTaskPlayer ---`);
+    console.error(`Game ID: ${req?.params?.gameId}`);
+    console.error('Error Message:', err.message);
+    console.error('Error Stack:', err.stack);
+    // --- Конец улучшенного логирования --- 
+    if (!res.headersSent) { // Проверяем, не был ли уже отправлен ответ
+      if (err.kind === 'ObjectId') {
+          res.status(404).json({ msg: 'Game not found (in catch block)' });
+      } else {
+          res.status(500).send('Server Error (in catch block)');
+      }
     }
-    res.status(500).send('Server Error');
   }
 };
 
