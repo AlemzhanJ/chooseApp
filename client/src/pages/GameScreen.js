@@ -24,8 +24,8 @@ function GameScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // Добавляем состояние для задачи, которая будет отображаться (из БД или AI)
-  const [currentDisplayTask, setCurrentDisplayTask] = useState(null);
-  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  // const [currentDisplayTask, setCurrentDisplayTask] = useState(null); // Удаляем это состояние
+  const [feedbackMessage, setFeedbackMessage] = useState(null); // Теперь может быть string или { type: 'task', ... }
   const feedbackTimeoutRef = useRef(null);
   const animationIntervalRef = useRef(null); // Ref для интервала анимации
 
@@ -45,7 +45,7 @@ function GameScreen() {
     try {
       const data = await getGame(gameId);
       setGameData(data);
-      setCurrentDisplayTask(data.currentTask); 
+      // setCurrentDisplayTask(data.currentTask); // Удаляем присваивание
       // Если игра уже в процессе выбора при загрузке (маловероятно, но возможно)
       if (data.status === 'selecting' && !isSelecting) {
          // Здесь можно подумать, нужно ли возобновлять анимацию
@@ -277,7 +277,6 @@ function GameScreen() {
   const handlePerformSelection = async (selectedFingerId) => {
     setLoading(true); 
     setError(null);
-    setCurrentDisplayTask(null); 
     setFeedbackMessage(null); // Очищаем предыдущее сообщение
     try {
         const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
@@ -325,10 +324,10 @@ function GameScreen() {
   const renderGameContent = () => {
       if (!gameData) return null; 
 
-      // Определяем, когда показывать область пальцев
-      const showFingerArea = gameData.status === 'waiting' || isSelecting || gameData.status === 'task_assigned';
-      // Определяем, когда показывать задание
-      const showTask = gameData.status === 'task_assigned' && !isSelecting;
+      // Область пальцев показываем всегда, кроме finished
+      const showFingerArea = gameData.status !== 'finished';
+      // Определяем, когда показывать задание - БОЛЬШЕ НЕ НУЖНО
+      // const showTask = gameData.status === 'task_assigned' && !isSelecting; 
       // Определяем, когда показывать победителя
       const showWinner = gameData.status === 'finished' && !isSelecting;
 
