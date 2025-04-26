@@ -4,7 +4,8 @@ import {
   getGame,
   selectWinnerOrTaskPlayer,
   updatePlayerStatus,
-  startGameSelection
+  startGameSelection,
+  deleteGameAPI
 } from '../services/api';
 import './GameScreen.css'; // Добавим файл стилей позже
 
@@ -38,6 +39,13 @@ function GameScreen() {
   const [timeLeft, setTimeLeft] = useState(null);
   const timerRef = useRef(null);
   // -----------------------------------------
+
+  const gameDataRef = useRef(gameData); // Используем ref для доступа к последнему gameData в cleanup
+
+  // Обновляем ref при изменении gameData
+  useEffect(() => {
+      gameDataRef.current = gameData;
+  }, [gameData]);
 
   const fetchGameData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true); // Управляем показом лоадера
@@ -118,11 +126,23 @@ function GameScreen() {
 
   useEffect(() => {
       return () => {
+          // --- Логика удаления игры при выходе --- 
+          const currentGameData = gameDataRef.current; // Получаем последнее состояние
+          if (currentGameData && currentGameData.status === 'finished') {
+              console.log(`GameScreen unmounting. Game ${gameId} is finished. Requesting deletion...`);
+              // Вызываем API удаления (fire-and-forget)
+              deleteGameAPI(gameId);
+          }
+          // -------------------------------------
+          
+          // Очистка других таймеров/интервалов
           if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
           if (animationIntervalRef.current) clearTimeout(animationIntervalRef.current); 
           if (timerRef.current) clearInterval(timerRef.current); 
       };
-  }, []);
+  // Пустой массив зависимостей, чтобы cleanup сработал только один раз при размонтировании
+  // gameId и gameDataRef доступны благодаря замыканию и ref
+  }, [gameId]); 
 
   // --- Эффект для таймера задания --- 
   useEffect(() => {

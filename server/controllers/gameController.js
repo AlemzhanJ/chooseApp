@@ -163,7 +163,7 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
       game.status = 'finished';
       const winner = game.players.find(p => p.fingerId === game.winnerFingerId);
       if (winner) winner.status = 'winner';
-      gameToDelete = game.id; 
+      // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление
 
     } else if (game.mode === 'tasks') {
       console.log('Mode: tasks. Setting status to task_assigned.');
@@ -208,10 +208,14 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
     res.json({ game: populatedGame, ...responsePayload });
     console.log('Response sent.');
 
+    // Если игра была помечена для удаления, удаляем ее
+    /* <-- УДАЛЯЕМ БЛОК
     if (gameToDelete) {
-        console.log(`Deleting finished simple game: ${gameToDelete}`);
+        console.log(`Deleting finished elimination game: ${gameToDelete}`);
+        // Запускаем удаление в фоне, не ждем завершения
         Game.findByIdAndDelete(gameToDelete).exec(); 
     }
+    */
 
   } catch (err) {
     // --- Улучшенное логирование ошибок --- 
@@ -266,12 +270,12 @@ exports.updatePlayerStatus = async (req, res) => {
                 winner.status = 'winner';
                 game.winnerFingerId = winner.fingerId;
                 game.status = 'finished';
-                gameToDelete = game.id; // <--- Помечаем игру для удаления
+                // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление
             }
         } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
              game.status = 'finished';
              game.winnerFingerId = null; 
-             gameToDelete = game.id; // <--- Помечаем игру для удаления (ничья)
+             // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление (ничья)
         } else {
             // Продолжение игры
             game.status = 'selecting'; 
@@ -290,11 +294,13 @@ exports.updatePlayerStatus = async (req, res) => {
     res.json(finalGameState);
 
     // Если игра была помечена для удаления, удаляем ее
+    /* <-- УДАЛЯЕМ БЛОК
     if (gameToDelete) {
         console.log(`Deleting finished elimination game: ${gameToDelete}`);
         // Запускаем удаление в фоне, не ждем завершения
         Game.findByIdAndDelete(gameToDelete).exec(); 
     }
+    */
 
   } catch (err) {
     console.error('Error updating player status:', err.message);
@@ -304,3 +310,45 @@ exports.updatePlayerStatus = async (req, res) => {
     res.status(500).send('Server Error');
   }
 }; 
+
+// --- НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ --- 
+// @desc    Удалить игру (предпочтительно завершенную)
+// @route   DELETE /api/games/:gameId
+// @access  Public (или можно защитить позже)
+exports.deleteGame = async (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    console.log(`[${new Date().toISOString()}] --- ATTEMPTING to delete game: ${gameId} ---`);
+    const game = await Game.findById(gameId);
+
+    if (!game) {
+      // Если игры уже нет, это не ошибка в данном контексте
+      console.log(`Game ${gameId} not found for deletion (already deleted?).`);
+      return res.status(204).send(); // No Content
+    }
+
+    // Опционально: разрешать удаление только завершенных игр
+    // if (game.status !== 'finished') {
+    //   console.log(`Attempt to delete non-finished game ${gameId} with status ${game.status}. Denying.`);
+    //   return res.status(400).json({ msg: 'Cannot delete game that is not finished' });
+    // }
+
+    await Game.findByIdAndDelete(gameId);
+    console.log(`Game ${gameId} deleted successfully.`);
+    res.status(204).send(); // No Content
+
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] --- ERROR deleting game ${req?.params?.gameId} ---`);
+    console.error('Error Message:', err.message);
+    console.error('Error Stack:', err.stack);
+    if (!res.headersSent) {
+       if (err.kind === 'ObjectId') {
+           // Игра не найдена для удаления - не ошибка
+           res.status(204).send(); 
+       } else {
+           res.status(500).send('Server Error during game deletion');
+       }
+    }
+  }
+};
+// --- КОНЕЦ НОВОЙ ФУНКЦИИ --- 

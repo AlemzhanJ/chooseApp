@@ -5,7 +5,8 @@ const {
   getGame,
   startGameSelection,
   selectWinnerOrTaskPlayer,
-  updatePlayerStatus
+  updatePlayerStatus,
+  deleteGame
 } = require('../controllers/gameController'); // Импортируем контроллеры (создадим их позже)
 
 // @route   POST api/games
@@ -33,5 +34,9 @@ router.post('/:gameId/select', selectWinnerOrTaskPlayer);
 // @access  Public
 router.put('/:gameId/players/:fingerId', updatePlayerStatus);
 
+// @route   DELETE api/games/:gameId
+// @desc    Удалить игру
+// @access  Public
+router.delete('/:gameId', deleteGame);
 
 module.exports = router; 
