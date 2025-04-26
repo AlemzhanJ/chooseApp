@@ -104,6 +104,7 @@ exports.startGameSelection = async (req, res) => {
 // @route   POST /api/games/:gameId/select
 // @access  Public
 exports.selectWinnerOrTaskPlayer = async (req, res) => {
+  let gameToDelete = null; // Переменная для хранения ID игры для удаления
   try {
     const gameId = req.params.gameId;
     const game = await Game.findById(gameId);
@@ -114,78 +115,58 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
     const activePlayers = game.players.filter(p => p.status === 'active');
     if (activePlayers.length === 0) return res.status(400).json({ msg: 'No active players to select from' });
 
-    // Выбираем игрока
     const randomIndex = Math.floor(Math.random() * activePlayers.length);
     const selectedPlayer = activePlayers[randomIndex];
     game.winnerFingerId = selectedPlayer.fingerId;
 
-    // --- Логика выбора задания (AI или БД) --- 
-    let responsePayload = {}; // Дополнительные данные для ответа (для AI задания)
-    game.currentTask = null; // Сбрасываем ссылку на задачу из БД по умолчанию
+    let responsePayload = {}; 
+    game.currentTask = null;
 
     if (game.mode === 'simple') {
       game.status = 'finished';
       const winner = game.players.find(p => p.fingerId === game.winnerFingerId);
       if (winner) winner.status = 'winner';
+      gameToDelete = game.id; // <--- Помечаем игру для удаления
 
     } else if (game.mode === 'tasks') {
       game.status = 'task_assigned';
-
       if (game.useAiTasks) {
         // --- Используем AI --- 
-        console.log(`Generating AI task with difficulty: ${game.taskDifficulty}`);
         const generatedText = await generateAiTaskService(game.taskDifficulty);
         if (generatedText) {
-            // Помещаем сгенерированное задание в доп. поле ответа
-            responsePayload.aiGeneratedTask = { 
-                text: generatedText, 
-                difficulty: game.taskDifficulty, 
-                isAiGenerated: true 
-            };
+            responsePayload.aiGeneratedTask = { text: generatedText, difficulty: game.taskDifficulty, isAiGenerated: true };
         } else {
-            console.error('AI service returned null, task generation failed.');
-            // Возвращаем маркер ошибки
-             responsePayload.aiGeneratedTask = { 
-                text: "Не удалось сгенерировать задание с помощью ИИ.", 
-                difficulty: game.taskDifficulty, 
-                isAiGenerated: true, 
-                error: true 
-            };
+             responsePayload.aiGeneratedTask = { text: "Не удалось сгенерировать задание с помощью ИИ.", difficulty: game.taskDifficulty, isAiGenerated: true, error: true };
         }
-        // game.currentTask остается null
-
       } else {
         // --- Используем БД --- 
-        console.log(`Fetching DB task with difficulty: ${game.taskDifficulty}`);
         const taskFilter = {};
-        if (game.taskDifficulty !== 'any') {
-          taskFilter.difficulty = game.taskDifficulty;
-        }
+        if (game.taskDifficulty !== 'any') taskFilter.difficulty = game.taskDifficulty;
         const taskCount = await Task.countDocuments(taskFilter);
         if (taskCount > 0) {
             const randomTaskIndex = Math.floor(Math.random() * taskCount);
             const randomTask = await Task.findOne(taskFilter).skip(randomTaskIndex);
-            if (randomTask) {
-                game.currentTask = randomTask._id; // Устанавливаем ссылку на задачу из БД
-                console.log(`DB task found: ${randomTask._id}`);
-            } else {
-                 console.warn(`No tasks found for difficulty: ${game.taskDifficulty} even though count > 0`);
-            }
+            if (randomTask) game.currentTask = randomTask._id;
         } else {
             console.warn(`No tasks found in DB for difficulty: ${game.taskDifficulty}`);
-            // game.currentTask остается null
+            // Если задач в БД нет, но режим с задачами, можно тоже вернуть AI-подобный объект ошибки
+            responsePayload.aiGeneratedTask = { text: `Задания сложности '${game.taskDifficulty}' не найдены в базе.`, difficulty: game.taskDifficulty, isAiGenerated: false, error: true };
         }
       }
     }
-    // -------------------------------------
 
     await game.save();
-    
-    // Получаем обновленное состояние игры, потенциально с populated currentTask, если была выбрана задача из БД
     const populatedGame = await Game.findById(game.id).populate('currentTask');
     
-    // Отправляем обновленную игру и, возможно, сгенерированную AI задачу
+    // Отправляем ответ клиенту ПЕРЕД удалением
     res.json({ game: populatedGame, ...responsePayload });
+
+    // Если игра была помечена для удаления, удаляем ее
+    if (gameToDelete) {
+        console.log(`Deleting finished simple game: ${gameToDelete}`);
+        // Запускаем удаление в фоне, не ждем завершения
+        Game.findByIdAndDelete(gameToDelete).exec(); 
+    }
 
   } catch (err) {
     console.error('Error selecting winner/task player:', err.message);
@@ -200,22 +181,17 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
 // @route   PUT /api/games/:gameId/players/:fingerId
 // @access  Public
 exports.updatePlayerStatus = async (req, res) => {
+  let gameToDelete = null; // Переменная для хранения ID игры для удаления
   try {
     const { gameId, fingerId } = req.params;
-    const { action } = req.body; // Ожидаем 'complete_task' или 'eliminate'
-
+    const { action } = req.body;
     const game = await Game.findById(gameId);
-    if (!game) {
-      return res.status(404).json({ msg: 'Game not found' });
-    }
 
-    // Находим игрока по fingerId
+    if (!game) return res.status(404).json({ msg: 'Game not found' });
+
     const player = game.players.find(p => p.fingerId.toString() === fingerId);
-    if (!player) {
-      return res.status(404).json({ msg: 'Player not found in this game' });
-    }
+    if (!player) return res.status(404).json({ msg: 'Player not found in this game' });
 
-    // Логика для режима с заданиями и выбыванием
     if (game.mode === 'tasks' && game.status === 'task_assigned') {
         if (action === 'eliminate') {
             if (game.eliminationEnabled && player.status === 'active') {
@@ -225,40 +201,47 @@ exports.updatePlayerStatus = async (req, res) => {
                  return res.status(400).json({ msg: 'Cannot eliminate player or elimination is disabled' });
             }
         } else if (action === 'complete_task') {
-            // Если задание выполнено, просто переводим игру обратно в статус выбора
-            // Статус игрока не меняется, он остается 'active'
-            // Ничего не делаем с игроком, просто меняем статус игры
+            // Ничего не делаем с игроком
         } else {
             return res.status(400).json({ msg: 'Invalid action' });
         }
 
-        // Проверяем, остался ли один победитель (если включено выбывание)
+        // Проверка на победителя или продолжение игры
         if (game.eliminationEnabled && game.activePlayerCount === 1) {
             const winner = game.players.find(p => p.status === 'active');
             if (winner) {
                 winner.status = 'winner';
                 game.winnerFingerId = winner.fingerId;
                 game.status = 'finished';
+                gameToDelete = game.id; // <--- Помечаем игру для удаления
             }
         } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
-             // Ситуация, когда не осталось активных игроков (ничья?)
-             game.status = 'finished'; // Просто завершаем
-             game.winnerFingerId = null; // Нет победителя
+             game.status = 'finished';
+             game.winnerFingerId = null; 
+             gameToDelete = game.id; // <--- Помечаем игру для удаления (ничья)
         } else {
-            // Если игра продолжается (задание выполнено или игрок выбыл, но остались другие)
-            game.status = 'selecting'; // Возвращаем в статус выбора для следующего раунда
-            game.currentTask = null; // Очищаем текущее задание
-            game.winnerFingerId = null; // Очищаем выбранного игрока
+            // Продолжение игры
+            game.status = 'selecting'; 
+            game.currentTask = null;
+            game.winnerFingerId = null;
         }
-
     } else {
-      // Если режим не 'tasks' или статус не 'task_assigned', обновление не применимо
       return res.status(400).json({ msg: `Cannot update player status in mode '${game.mode}' and status '${game.status}'` });
     }
 
     await game.save();
-    const populatedGame = await Game.findById(game.id).populate('currentTask');
-    res.json(populatedGame);
+    // Получаем финальное состояние перед отправкой
+    const finalGameState = await Game.findById(game.id);
+
+    // Отправляем ответ клиенту ПЕРЕД удалением
+    res.json(finalGameState);
+
+    // Если игра была помечена для удаления, удаляем ее
+    if (gameToDelete) {
+        console.log(`Deleting finished elimination game: ${gameToDelete}`);
+        // Запускаем удаление в фоне, не ждем завершения
+        Game.findByIdAndDelete(gameToDelete).exec(); 
+    }
 
   } catch (err) {
     console.error('Error updating player status:', err.message);
