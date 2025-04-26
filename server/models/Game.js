@@ -13,7 +13,7 @@ const PlayerSchema = new Schema({
     default: 'active',
   },
   // Можно добавить другие поля для игрока, если нужно
-});
+}, { _id: false });
 
 const GameSchema = new Schema(
   {
@@ -61,6 +61,10 @@ const GameSchema = new Schema(
       // Количество активных игроков (для режима с выбыванием)
       type: Number,
       default: 0,
+    },
+    taskTimeLimit: {
+      type: Number,
+      default: null,
     },
     // Поле для истории игры (опционально)
     // history: [{ round: Number, taskId: Schema.Types.ObjectId, eliminatedFingerId: Number }],

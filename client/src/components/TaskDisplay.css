@@ -87,4 +87,39 @@
   font-size: 0.8em;
   border-radius: 10px;
   font-weight: bold;
+}
+
+/* Стили для таймера */
+.timer-container {
+  position: relative;
+  height: 30px;
+  background-color: #e9ecef; /* Светлый фон для контейнера */
+  border-radius: 15px; /* Скругленные углы */
+  margin: 25px 0; /* Отступы сверху и снизу */
+  overflow: hidden; /* Скрыть выходящий за пределы бар */
+}
+
+.timer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #ffc107; /* Желтый цвет таймера */
+  border-radius: 15px;
+  transition: width 0.5s linear; /* Плавное изменение ширины */
+  /* Добавляем градиент для красоты */
+  background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
+  background-size: 1rem 1rem;
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #343a40; /* Темный цвет текста */
+  font-weight: bold;
+  font-size: 0.9em;
+  white-space: nowrap;
+  z-index: 2; /* Поверх бара */
 } 

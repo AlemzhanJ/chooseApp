@@ -14,6 +14,7 @@ function SettingsScreen() {
   const [eliminationEnabled, setEliminationEnabled] = useState(false);
   const [taskDifficulty, setTaskDifficulty] = useState('any'); // ('easy', 'medium', 'hard', 'any')
   const [useAiTasks, setUseAiTasks] = useState(false); // <--- Добавлено состояние для AI
+  const [taskTimeLimit, setTaskTimeLimit] = useState(30); // <--- Добавлено состояние для времени (в секундах)
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,9 +30,13 @@ function SettingsScreen() {
       ...(mode === 'tasks' && { 
           eliminationEnabled, 
           taskDifficulty, 
-          useAiTasks // <--- Передаем настройку AI
+          useAiTasks,
+          // Добавляем время, только если выбывание включено
+          ...(eliminationEnabled && { taskTimeLimit: parseInt(taskTimeLimit, 10) || 30 }) // <--- Передаем время
       }),
     };
+
+    console.log('Sending game settings:', gameSettings); // Логируем настройки для отладки
 
     try {
       // Используем функцию из сервиса API
@@ -120,6 +125,22 @@ function SettingsScreen() {
                 Включить выбывание
               </label>
             </div>
+
+            {/* Поле для ввода времени, появляется только если включено выбывание */}
+            {eliminationEnabled && (
+                 <div className="form-group">
+                    <label htmlFor="taskTimeLimit">Время на задание (сек):</label>
+                    <input
+                      type="number"
+                      id="taskTimeLimit"
+                      min="5" // Минимум 5 секунд
+                      max="300" // Максимум 5 минут
+                      value={taskTimeLimit}
+                      onChange={(e) => setTaskTimeLimit(e.target.value)}
+                      required // Делаем обязательным, если выбывание включено
+                    />
+                 </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="taskDifficulty">Сложность заданий {useAiTasks ? '(для AI)' : '(из базы)'}:</label>

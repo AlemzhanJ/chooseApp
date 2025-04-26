@@ -8,24 +8,42 @@ const { generateTask: generateAiTaskService } = require('../services/ai-service'
 // @access  Public
 exports.createGame = async (req, res) => {
   try {
-    // Достаем useAiTasks из тела запроса
-    const { numPlayers, mode, eliminationEnabled, taskDifficulty, useAiTasks } = req.body;
+    // Достаем все возможные настройки из тела запроса
+    const { 
+        numPlayers, 
+        mode, 
+        eliminationEnabled, 
+        taskDifficulty, 
+        useAiTasks, 
+        taskTimeLimit // <--- Достаем лимит времени
+    } = req.body;
 
     if (!numPlayers || !mode) {
       return res.status(400).json({ msg: 'Please provide numPlayers and mode' });
     }
 
-    const newGame = new Game({
+    const newGameData = {
       numPlayers,
       mode,
-      eliminationEnabled: eliminationEnabled === true, // Явно преобразуем в boolean
-      taskDifficulty: taskDifficulty || 'any',
-      useAiTasks: useAiTasks === true, // <--- Сохраняем настройку AI
-      players: [], // Игроки добавляются позже, при старте выбора
       status: 'waiting',
-      activePlayerCount: 0, // Изначально 0 активных игроков
-    });
+      players: [],
+      activePlayerCount: 0, 
+    };
+    
+    // Добавляем настройки специфичные для режима 'tasks'
+    if (mode === 'tasks') {
+        newGameData.eliminationEnabled = eliminationEnabled === true;
+        newGameData.taskDifficulty = taskDifficulty || 'any';
+        newGameData.useAiTasks = useAiTasks === true;
+        // Сохраняем лимит времени только если он передан и выбывание включено
+        if (eliminationEnabled === true && taskTimeLimit && Number.isInteger(taskTimeLimit) && taskTimeLimit > 0) {
+            newGameData.taskTimeLimit = taskTimeLimit;
+        } else {
+             newGameData.taskTimeLimit = null; // Явно ставим null, если не используется
+        }
+    }
 
+    const newGame = new Game(newGameData);
     const game = await newGame.save();
     res.status(201).json(game);
   } catch (err) {

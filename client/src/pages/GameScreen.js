@@ -98,6 +98,8 @@ function GameScreen() {
             selectedPlayerFingerId={gameData.winnerFingerId}
             onAction={handlePlayerAction} 
             eliminationEnabled={gameData.eliminationEnabled}
+            // Передаем лимит времени, если он есть и выбывание включено
+            taskTimeLimit={gameData.eliminationEnabled ? gameData.taskTimeLimit : null}
           />
         );
       case 'finished':
