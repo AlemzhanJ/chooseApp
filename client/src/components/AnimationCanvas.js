@@ -16,40 +16,53 @@ function AnimationCanvas({ players, onSelectionTrigger }) {
   
   useEffect(() => {
     const wheelElement = wheelRef.current;
-    setIsSpinning(true);
-    console.log('Animation started for players:', players);
+    if (!wheelElement) return; // Если элемента нет, выходим
 
-    // Более длительная и случайная анимация
-    const randomSpins = Math.floor(Math.random() * 5) + 8; // 8-12 полных оборотов
+    setIsSpinning(true);
+    console.log('AnimationCanvas: Starting spin effect');
+
+    const randomSpins = Math.floor(Math.random() * 5) + 8;
     const randomAngleWithin360 = Math.random() * 360;
     const targetRotation = randomSpins * 360 + randomAngleWithin360;
-    const spinDuration = Math.random() * 2000 + 4000; // 4-6 секунд
+    const spinDuration = Math.random() * 2000 + 4000;
 
-    setFinalRotation(targetRotation); // Сохраняем для потенциального использования (например, точного определения сектора)
+    setFinalRotation(targetRotation);
     
-    if (wheelElement) {
-        // Используем ease-out для замедления в конце
-        wheelElement.style.transition = `transform ${spinDuration / 1000}s cubic-bezier(0.1, 0.7, 0.3, 1)`; 
-        wheelElement.style.transform = `rotate(${targetRotation}deg)`;
-    }
+    // 1. Сбрасываем transition и устанавливаем начальное положение (0 градусов)
+    wheelElement.style.transition = 'none';
+    wheelElement.style.transform = 'rotate(0deg)'; // Или можно использовать previous finalRotation? Пока 0.
 
-    const animationTimeout = setTimeout(() => {
-      console.log('Animation finished visually, triggering backend selection.');
-      setIsSpinning(false); 
-      // Возможно, небольшая задержка перед вызовом, чтобы анимация точно завершилась
-      setTimeout(onSelectionTrigger, 100);
-    }, spinDuration);
-
-    return () => {
-        clearTimeout(animationTimeout);
-        if (wheelElement) {
-             // При размонтировании можно оставить колесо в конечном положении
-             // wheelElement.style.transition = '';
-             // wheelElement.style.transform = '';
+    // 2. Используем setTimeout, чтобы применить transition и конечный transform в следующем тике
+    const applyAnimationTimeout = setTimeout(() => {
+        // Проверяем ref еще раз на случай, если компонент размонтировался
+        const currentWheelElement = wheelRef.current; 
+        if (currentWheelElement) {
+            console.log('AnimationCanvas: Applying transition and transform');
+            currentWheelElement.style.transition = `transform ${spinDuration / 1000}s cubic-bezier(0.1, 0.7, 0.3, 1)`; 
+            currentWheelElement.style.transform = `rotate(${targetRotation}deg)`;
         }
+    }, 50); // Небольшая задержка (50ms)
+
+    // 3. Таймер для вызова onSelectionTrigger после завершения анимации
+    const triggerTimeout = setTimeout(() => {
+      console.log('AnimationCanvas: Visual animation ended, triggering backend.');
+      setIsSpinning(false); 
+      setTimeout(onSelectionTrigger, 100); // Небольшая доп. задержка
+    }, spinDuration + 50); // Учитываем задержку применения анимации
+
+    // Очистка
+    return () => {
+        console.log('AnimationCanvas: Cleaning up timeouts');
+        clearTimeout(applyAnimationTimeout);
+        clearTimeout(triggerTimeout);
+        // Можно добавить сброс стилей при размонтировании, если нужно
+        // const finalWheelElement = wheelRef.current;
+        // if (finalWheelElement) {
+        //     finalWheelElement.style.transition = 'none';
+        // }
     };
 
-  }, [players, onSelectionTrigger]);
+  }, [players, onSelectionTrigger]); // Зависимости кажутся правильными
 
   // Увеличиваем радиус для меток, чтобы они были ближе к краю
   const labelRadius = 120; 
