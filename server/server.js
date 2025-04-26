@@ -11,8 +11,27 @@ connectDB();
 
 const app = express();
 
-// Включение CORS для всех маршрутов (настройте более строго для production)
-app.use(cors());
+// --- Настройка CORS для Production --- 
+const allowedOrigins = [
+    'http://localhost:3000', // Для локальной разработки
+    'https://choose-app-eta.vercel.app' // ВАШ URL!
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Разрешить запросы без origin (Postman, curl) или из списка разрешенных
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.error(`CORS error: Origin ${origin} not allowed`); 
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  optionsSuccessStatus: 200 
+};
+
+app.use(cors(corsOptions));
+// -------------------------------------
 
 // Middleware для парсинга JSON
 app.use(express.json());
