@@ -231,8 +231,21 @@ function GameScreen() {
       // Определяем, когда показывать победителя
       const showWinner = gameData.status === 'finished' && !isSelecting;
 
+      // ----- ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ БЛОК -----
+      const debugInfo = (
+          <div style={{ position: 'absolute', top: '5px', left: '5px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px', fontSize: '10px', zIndex: 100 }}>
+              <p>Status: {gameData.status}</p>
+              <p>isSelecting: {isSelecting.toString()}</p>
+              <p>Task Exists: {currentDisplayTask ? 'Yes' : 'No'}</p>
+              <p>Winner ID: {gameData.winnerFingerId ?? 'N/A'}</p>
+          </div>
+      );
+      // -------------------------------------
+
       return (
           <>
+              {debugInfo} {/* Добавляем отладочный блок */} 
+              
               {/* 1. Показываем Задание (если есть) */} 
               {showTask && (
                   <TaskDisplay 
