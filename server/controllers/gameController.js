@@ -199,8 +199,7 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
 // @route   PUT /api/games/:gameId/players/:fingerId
 // @access  Public
 exports.updatePlayerStatus = async (req, res) => {
-  let gameToDelete = null;
-  let eliminatedPlayerFingerId = null; // <--- Добавим переменную для ID выбывшего
+  let gameToDelete = null; // Переменная для хранения ID игры для удаления
   try {
     const { gameId, fingerId } = req.params;
     const { action } = req.body;
@@ -211,48 +210,38 @@ exports.updatePlayerStatus = async (req, res) => {
     const player = game.players.find(p => p.fingerId.toString() === fingerId);
     if (!player) return res.status(404).json({ msg: 'Player not found in this game' });
 
-    // Убедимся, что обновляем статус нужного игрока (того, кому было задание)
-    if (game.winnerFingerId !== player.fingerId) {
-         return res.status(400).json({ msg: 'Cannot update status for a player who was not selected for the task.' });
-    }
-
     if (game.mode === 'tasks' && game.status === 'task_assigned') {
         if (action === 'eliminate') {
             if (game.eliminationEnabled && player.status === 'active') {
                 player.status = 'eliminated';
                 game.activePlayerCount -= 1;
-                eliminatedPlayerFingerId = player.fingerId; // <--- Запомним ID выбывшего
             } else {
-                 // Если выбывание отключено или игрок уже не активен
                  return res.status(400).json({ msg: 'Cannot eliminate player or elimination is disabled' });
             }
         } else if (action === 'complete_task') {
-            // Статус игрока не меняется, он остается 'active'
+            // Ничего не делаем с игроком
         } else {
             return res.status(400).json({ msg: 'Invalid action' });
         }
 
         // Проверка на победителя или продолжение игры
         if (game.eliminationEnabled && game.activePlayerCount === 1) {
-            // Определяем победителя
             const winner = game.players.find(p => p.status === 'active');
             if (winner) {
                 winner.status = 'winner';
                 game.winnerFingerId = winner.fingerId;
                 game.status = 'finished';
-                gameToDelete = game.id;
+                gameToDelete = game.id; // <--- Помечаем игру для удаления
             }
         } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
-             // Ничья (все выбыли одновременно?)
              game.status = 'finished';
              game.winnerFingerId = null; 
-             gameToDelete = game.id;
+             gameToDelete = game.id; // <--- Помечаем игру для удаления (ничья)
         } else {
-            // Продолжение игры: сброс задания и переход к выбору
+            // Продолжение игры
             game.status = 'selecting'; 
             game.currentTask = null;
             game.winnerFingerId = null;
-             // eliminatedPlayerFingerId уже установлен, если кто-то выбыл
         }
     } else {
       return res.status(400).json({ msg: `Cannot update player status in mode '${game.mode}' and status '${game.status}'` });
@@ -262,19 +251,13 @@ exports.updatePlayerStatus = async (req, res) => {
     // Получаем финальное состояние перед отправкой
     const finalGameState = await Game.findById(game.id);
 
-    // Формируем ответ
-    const responsePayload = {
-        game: finalGameState,
-        // Добавляем ID выбывшего, только если игра продолжается (status = selecting)
-        ...(finalGameState.status === 'selecting' && eliminatedPlayerFingerId !== null && { eliminatedPlayerFingerId })
-    };
-
     // Отправляем ответ клиенту ПЕРЕД удалением
-    res.json(responsePayload); // <--- Отправляем расширенный ответ
+    res.json(finalGameState);
 
     // Если игра была помечена для удаления, удаляем ее
     if (gameToDelete) {
         console.log(`Deleting finished elimination game: ${gameToDelete}`);
+        // Запускаем удаление в фоне, не ждем завершения
         Game.findByIdAndDelete(gameToDelete).exec(); 
     }
 

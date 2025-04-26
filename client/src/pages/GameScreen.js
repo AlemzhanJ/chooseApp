@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getGame,
@@ -26,12 +26,12 @@ function GameScreen() {
   const [error, setError] = useState(null);
   // Добавляем состояние для задачи, которая будет отображаться (из БД или AI)
   const [currentDisplayTask, setCurrentDisplayTask] = useState(null);
-  const [justEliminatedPlayerId, setJustEliminatedPlayerId] = useState(null);
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const feedbackTimeoutRef = useRef(null);
 
   // Используем useCallback для мемоизации функции, чтобы избежать лишних вызовов useEffect
   const fetchGameData = useCallback(async () => {
     setError(null);
-    setJustEliminatedPlayerId(null);
     try {
       // Используем функцию getGame из сервиса
       const data = await getGame(gameId);
@@ -55,6 +55,15 @@ function GameScreen() {
     fetchGameData();
     // TODO: WebSocket или polling
   }, [fetchGameData]); // Используем мемоизированную функцию в зависимостях
+
+  // Очистка таймаута при размонтировании
+  useEffect(() => {
+      return () => {
+          if (feedbackTimeoutRef.current) {
+              clearTimeout(feedbackTimeoutRef.current);
+          }
+      };
+  }, []);
 
   // --- Рендеринг в зависимости от состояния --- 
 
@@ -88,9 +97,8 @@ function GameScreen() {
       case 'selecting':
         return (
           <AnimationCanvas 
-            players={gameData.players.filter(p => p.status === 'active')}
+            players={gameData.players} 
             onSelectionTrigger={handlePerformSelection}
-            justEliminatedPlayerId={justEliminatedPlayerId}
           />
         );
       case 'task_assigned':
@@ -129,7 +137,6 @@ function GameScreen() {
   const handleReadyToStart = async (fingers) => {
       setLoading(true);
       setError(null);
-      setJustEliminatedPlayerId(null);
       try {
           // Используем startGameSelection из сервиса
           const updatedGame = await startGameSelection(gameId, fingers);
@@ -146,8 +153,7 @@ function GameScreen() {
   const handlePerformSelection = async () => {
     setLoading(true);
     setError(null);
-    setCurrentDisplayTask(null);
-    setJustEliminatedPlayerId(null);
+    setCurrentDisplayTask(null); // Очищаем предыдущую задачу перед запросом
     try {
         const response = await selectWinnerOrTaskPlayer(gameId);
         setGameData(response.game); // Обновляем основное состояние игры
@@ -170,20 +176,35 @@ function GameScreen() {
 
   // Обновляем обработчик действия игрока
   const handlePlayerAction = async (action) => {
-      if (!gameData || gameData.status !== 'task_assigned' || gameData.winnerFingerId === null) return;
+      const playerFingerId = gameData?.winnerFingerId; // Сохраняем ID игрока перед запросом
+      if (!gameData || gameData.status !== 'task_assigned' || playerFingerId === null) return;
+      
       setLoading(true);
       setError(null);
-      setCurrentDisplayTask(null);
-      setJustEliminatedPlayerId(null);
+      setCurrentDisplayTask(null); 
+      // Очищаем предыдущий таймаут сообщения, если он был
+      if (feedbackTimeoutRef.current) {
+          clearTimeout(feedbackTimeoutRef.current);
+          feedbackTimeoutRef.current = null;
+          setFeedbackMessage(null); // И сбрасываем сообщение сразу
+      }
+
       try {
-          // Получаем расширенный ответ от API
-          const response = await updatePlayerStatus(gameId, gameData.winnerFingerId, action);
-          setGameData(response.game); // Обновляем основное состояние
+          const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
+          setGameData(updatedGame);
           
-          // Если в ответе есть ID выбывшего, сохраняем его
-          if (response.eliminatedPlayerFingerId !== undefined) {
-              setJustEliminatedPlayerId(response.eliminatedPlayerFingerId);
-          }
+          // Показываем сообщение о выбывании
+          if (action === 'eliminate') {
+              const message = `Игрок #${playerFingerId} выбывает!`;
+              setFeedbackMessage(message);
+              // Устанавливаем таймаут для скрытия сообщения
+              feedbackTimeoutRef.current = setTimeout(() => {
+                  setFeedbackMessage(null);
+                  feedbackTimeoutRef.current = null;
+              }, 3000); // Показываем 3 секунды
+          } 
+          // else if (action === 'complete_task') { ... можно добавить сообщение об успешном выполнении ... }
+          
       } catch (err) {
           console.error("Error updating player status:", err);
           setError(err.message || 'Ошибка при обновлении статуса игрока.');
@@ -195,10 +216,15 @@ function GameScreen() {
 
   return (
     <div className="game-container">
+       {/* Отображаем сообщение обратной связи поверх всего */}
+       {feedbackMessage && (
+           <div className="feedback-message show"> 
+               {feedbackMessage}
+           </div>
+       )}
+       
       {/* Можно добавить общий заголовок или навигацию */} 
       {renderGameContent()}
-      {/* Отображение ошибки поверх контента, если нужно */} 
-      {error && !loading && <div className="status-message error-message">Ошибка: {error}</div>} 
     </div>
   );
 }

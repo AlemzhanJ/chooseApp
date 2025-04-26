@@ -58,30 +58,4 @@
 }
 
 /* Убираем старый блок .player-ids */
-/* .player-ids { ... } */
-
-/* Сообщение о выбывании */
-.elimination-message {
-  position: absolute; /* Поверх всего */
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(217, 83, 79, 0.9); /* Полупрозрачный красный фон */
-  color: white;
-  padding: 20px 30px;
-  border-radius: 10px;
-  font-size: 1.4em;
-  font-weight: bold;
-  z-index: 20; /* Выше колеса и стрелки */
-  text-align: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-
-h2 { 
-  /* Стили для заголовка под колесом */
-  margin-top: 30px; 
-  color: #555;
-  font-size: 1.6em;
-  height: 2em; /* Зарезервируем место, чтобы не прыгало */
-  line-height: 1.3;
-} 
+/* .player-ids { ... } */ 
