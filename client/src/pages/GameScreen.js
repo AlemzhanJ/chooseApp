@@ -107,7 +107,20 @@ function GameScreen() {
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
         
-        // Упрощенная проверка для показа сообщения
+        // --- Проверка на завершение игры ПОСЛЕ обновления --- 
+        if (updatedGame.status === 'finished') {
+            // Если игра закончилась этим действием, сразу убираем сообщение
+            if (feedbackTimeoutRef.current) {
+                clearTimeout(feedbackTimeoutRef.current);
+                feedbackTimeoutRef.current = null;
+            }
+            setFeedbackMessage(null);
+            setLoading(false); // Убираем лоадер, т.к. обработка завершена
+            return; // Выходим, так как дальнейшая логика feedbackMessage не нужна
+        }
+        // ------------------------------------------------------
+        
+        // Упрощенная проверка для показа сообщения (только если игра не завершена)
         if (action === 'eliminate' || action === 'complete_task') {
             const message = action === 'eliminate'
                 ? `Игрок #${playerFingerId} выбывает!`
