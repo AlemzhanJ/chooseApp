@@ -172,40 +172,40 @@ function GameScreen() {
 
   // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
   const handlePerformSelection = async (selectedFingerId) => {
-    // --- Убираем визуальный индикатор --- 
-    // setFeedbackMessage(`Внутри handlePerform(${selectedFingerId}). Загрузка...`);
-    setLoading(true);
+    setLoading(true); 
     setError(null);
     setCurrentDisplayTask(null); 
     try {
-        // Передаем ID выбранного пальца (если режим "задание")
-        // Бэкенд сам решит, использовать ли ID или выбрать случайно (для режима "победитель")
         const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
         setGameData(response.game); 
+        
+        // --- ВИЗУАЛЬНАЯ ОТЛАДКА ЗАДАНИЯ --- 
+        let taskInfoForDebug = "No AI task in response";
+        if (response.aiGeneratedTask) {
+             taskInfoForDebug = `AI Task: text='${response.aiGeneratedTask.text?.substring(0, 50)}...', isAIGen=${response.aiGeneratedTask.isAiGenerated}`; 
+        } else if (response.game.currentTask) {
+             taskInfoForDebug = `DB Task ID: ${response.game.currentTask}`;
+        }
+        setFeedbackMessage(taskInfoForDebug); // Показываем инфо о задании
+        // ---------------------------------
         
         if (response.aiGeneratedTask) {
             setCurrentDisplayTask(response.aiGeneratedTask);
         } else {
             setCurrentDisplayTask(response.game.currentTask);
         }
-        // Анимация уже завершилась, подсветка на победителе осталась
-        // isSelecting должен стать false после обновления gameData (сделаем в fetchGameData)
 
     } catch (err) {
         console.error("Error performing selection:", err);
         const errorMsg = err.message || 'Ошибка при выборе.';
         setError(errorMsg);
-        // --- Убираем визуальный индикатор --- 
-        // setFeedbackMessage(`Ошибка выбора: ${errorMsg}`);
-        // Сбрасываем анимацию в случае ошибки
+        setFeedbackMessage(`Ошибка API: ${errorMsg}`); // Обновляем сообщение об ошибке
         setIsSelecting(false); 
         setHighlightedIndex(null);
     } finally {
-        // Возвращаем fetchGameData для получения гарантированно свежего состояния
         await fetchGameData(false); 
-        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обновления данных
-        // setLoading(false); // Убираем, так как fetchGameData управляет лоадером
-        // setHighlightedIndex(null); // Оставляем подсветку победителя? Решим позже.
+        setIsSelecting(false); 
+        // setLoading не нужен, т.к. fetchGameData управляет им
     }
   };
   
