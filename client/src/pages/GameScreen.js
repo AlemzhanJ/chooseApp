@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getGame,
-  startGameSelection,
   selectWinnerOrTaskPlayer,
   updatePlayerStatus
 } from '../services/api';
@@ -10,7 +9,7 @@ import './GameScreen.css'; // Добавим файл стилей позже
 
 // Импорт компонента
 import FingerPlacementArea from '../components/FingerPlacementArea';
-// import AnimationCanvas from '../components/AnimationCanvas'; // Удаляем
+import AnimationCanvas from '../components/AnimationCanvas';
 import TaskDisplay from '../components/TaskDisplay';
 import WinnerDisplay from '../components/WinnerDisplay';
 import Button from '../components/Button'; // Импортируем Button
@@ -28,104 +27,110 @@ function GameScreen() {
   const [currentDisplayTask, setCurrentDisplayTask] = useState(null);
   const [feedbackMessage, setFeedbackMessage] = useState(null);
   const feedbackTimeoutRef = useRef(null);
-  // Новые состояния для анимации выбора
-  const [highlightedPlayerIndex, setHighlightedPlayerIndex] = useState(null);
-  const [selectedPlayerIndex, setSelectedPlayerIndex] = useState(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animationTimeoutRef = useRef(null); // Ref для таймаутов анимации
+  const animationIntervalRef = useRef(null); // Ref для интервала анимации
 
-  // Используем useCallback для мемоизации функции, чтобы избежать лишних вызовов useEffect
-  const fetchGameData = useCallback(async () => {
+  // Новые состояния для анимации выбора
+  const [isSelecting, setIsSelecting] = useState(false); 
+  const [highlightedIndex, setHighlightedIndex] = useState(null);
+  const [placedFingers, setPlacedFingers] = useState([]); // Сохраняем пальцы
+
+  const fetchGameData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true); // Управляем показом лоадера
     setError(null);
     try {
-      // Используем функцию getGame из сервиса
       const data = await getGame(gameId);
       setGameData(data);
-      // При первоначальной загрузке устанавливаем задачу для отображения
-      setCurrentDisplayTask(data.currentTask); // currentTask будет null если игра только началась
+      setCurrentDisplayTask(data.currentTask); 
+      // Если игра уже в процессе выбора при загрузке (маловероятно, но возможно)
+      if (data.status === 'selecting' && !isSelecting) {
+         // Здесь можно подумать, нужно ли возобновлять анимацию
+         // Пока просто отобразим, что идет выбор
+      }
+      // Сбросим анимацию если статус сменился с selecting
+      if (data.status !== 'selecting' && isSelecting) {
+          setIsSelecting(false);
+          setHighlightedIndex(null);
+          if (animationIntervalRef.current) {
+              clearTimeout(animationIntervalRef.current);
+              animationIntervalRef.current = null;
+          }
+      }
     } catch (err) {
       console.error('Error fetching game data:', err);
       setError(err.message || 'Не удалось загрузить данные игры.');
-      if (err.response?.status === 404) {
-          // Можно добавить обработку 404
-      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }, [gameId]);
+  }, [gameId, isSelecting]); // Добавили isSelecting в зависимости
 
-  // Загрузка данных при монтировании компонента
   useEffect(() => {
-    setLoading(true); // Устанавливаем loading перед запросом
     fetchGameData();
-    // TODO: WebSocket или polling
-  }, [fetchGameData]); // Используем мемоизированную функцию в зависимостях
+  }, [fetchGameData]); 
 
-  // Запуск анимации выбора, когда статус меняется на 'selecting'
-  useEffect(() => {
-    if (gameData?.status === 'selecting' && !isAnimating) {
-      setIsAnimating(true);
-      setSelectedPlayerIndex(null); // Сбрасываем предыдущий выбор
-      setHighlightedPlayerIndex(0); // Начинаем с первого
-      console.log('GameScreen: Starting selection animation...');
-
-      const playersCount = gameData.players.length;
-      let currentIndex = 0;
-      let currentDelay = 300; // Начальная задержка (мс)
-      const minDelay = 50;     // Минимальная задержка
-      const delayDecrease = 25; // Уменьшение задержки на каждом шаге
-      const totalDuration = 4000 + Math.random() * 2000; // Общая длительность ~4-6 сек
-      const startTime = Date.now();
-
-      const runAnimationStep = () => {
-          currentIndex = (currentIndex + 1) % playersCount;
-          setHighlightedPlayerIndex(currentIndex);
-
-          // Уменьшаем задержку
-          currentDelay = Math.max(minDelay, currentDelay - delayDecrease);
-
-          if (Date.now() - startTime < totalDuration) {
-              animationTimeoutRef.current = setTimeout(runAnimationStep, currentDelay);
-          } else {
-              // Анимация завершена визуально, теперь вызываем бэкенд
-              console.log('GameScreen: Visual animation finished. Calling backend selection...');
-              handlePerformSelection(); 
-              // isAnimating и selectedPlayerIndex будут установлены в handlePerformSelection после ответа бэкенда
-          }
-      };
-
-      // Запускаем первый шаг
-      animationTimeoutRef.current = setTimeout(runAnimationStep, currentDelay);
-    }
-
-    // Очистка таймаута при смене статуса или размонтировании
-    return () => {
-      if (animationTimeoutRef.current) {
-        clearTimeout(animationTimeoutRef.current);
-        animationTimeoutRef.current = null;
-        console.log('GameScreen: Animation cleanup.');
-        // Сбрасываем состояние анимации, если она прервана сменой статуса
-        if (isAnimating) {
-            setIsAnimating(false);
-            setHighlightedPlayerIndex(null);
-        }
-      }
-    };
-    // Зависимости: статус игры и флаг анимации
-  }, [gameData?.status, gameData?.players, isAnimating]); // Добавляем gameData.players
-
-  // Очистка таймаута при размонтировании
   useEffect(() => {
       return () => {
-          if (feedbackTimeoutRef.current) {
-              clearTimeout(feedbackTimeoutRef.current);
-          }
+          if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+          if (animationIntervalRef.current) clearTimeout(animationIntervalRef.current); // Очищаем интервал
       };
   }, []);
 
-  // --- Рендеринг в зависимости от состояния --- 
+  // Логика анимации мерцания
+  useEffect(() => {
+    if (!isSelecting || !placedFingers.length) {
+      if (animationIntervalRef.current) {
+        clearTimeout(animationIntervalRef.current); // Используем clearTimeout для рекурсивного setTimeout
+        animationIntervalRef.current = null;
+      }
+      setHighlightedIndex(null); 
+      return;
+    }
 
-  if (loading) {
+    console.log("Starting selection animation...");
+    let currentIndex = 0;
+    let intervalTime = 300; 
+    let cycles = 0;
+    const totalCycles = 15 + Math.floor(Math.random() * 10); 
+    const accelerationPoint = Math.floor(totalCycles * 0.4); 
+
+    // Функция для одного шага анимации
+    const step = () => {
+        setHighlightedIndex(currentIndex % placedFingers.length);
+      
+        currentIndex++;
+        cycles++;
+
+        // Ускорение
+        if (cycles > accelerationPoint && intervalTime > 50) {
+            intervalTime = Math.max(50, intervalTime * 0.85); 
+        }
+      
+        // Остановка анимации или следующий шаг
+        if (cycles >= totalCycles) {
+            console.log("Animation finished. Selecting player...");
+            const winnerIndex = Math.floor(Math.random() * placedFingers.length);
+            const winnerFinger = placedFingers[winnerIndex];
+            setHighlightedIndex(winnerIndex); 
+            handlePerformSelection(winnerFinger.fingerId); 
+        } else {
+            // Запускаем следующий таймаут с текущим (возможно, измененным) интервалом
+            animationIntervalRef.current = setTimeout(step, intervalTime);
+        }
+    };
+
+    // Запускаем первый шаг
+    animationIntervalRef.current = setTimeout(step, intervalTime);
+
+    // Очистка при размонтировании или изменении isSelecting/placedFingers
+    return () => {
+      if (animationIntervalRef.current) {
+        clearTimeout(animationIntervalRef.current); // Используем clearTimeout
+        animationIntervalRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [isSelecting, placedFingers]);
+
+  if (loading && !gameData) { // Показываем лоадер только при первой загрузке
     return <div className="game-container status-message">Загрузка игры...</div>;
   }
 
@@ -133,159 +138,147 @@ function GameScreen() {
     return <div className="game-container status-message error-message">Ошибка: {error}</div>;
   }
 
-  if (!gameData) {
-    // Это состояние не должно возникать, если loading=false и нет ошибки, но на всякий случай
+  if (!gameData && !loading) { // Если не грузится и данных нет
     return <div className="game-container status-message">Нет данных об игре.</div>;
   }
-
-  // --- Отображение контента в зависимости от статуса игры --- 
-  const renderGameContent = () => {
-    switch (gameData.status) {
-      case 'waiting':
-        return (
-          <div>
-            <h2>Ожидание игроков...</h2>
-            {/* Используем FingerPlacementArea */}
-            <FingerPlacementArea 
-              expectedPlayers={gameData.numPlayers}
-              onReadyToStart={handleReadyToStart} 
-            />
-          </div>
-        );
-      case 'selecting':
-        return (
-          <FingerPlacementArea 
-            expectedPlayers={gameData.numPlayers}
-            players={gameData.players}
-            highlightedPlayerIndex={highlightedPlayerIndex}
-            isSelecting={true}
-          />
-        );
-      case 'task_assigned':
-        return (
-          <div className="task-view">
-            <FingerPlacementArea 
-              expectedPlayers={gameData.numPlayers}
-              players={gameData.players}
-              selectedPlayerIndex={selectedPlayerIndex}
-            />
-            <TaskDisplay 
-              task={currentDisplayTask} 
-              selectedPlayerFingerId={gameData.winnerFingerId}
-              onAction={handlePlayerAction} 
-              eliminationEnabled={gameData.eliminationEnabled}
-              taskTimeLimit={gameData.eliminationEnabled ? gameData.taskTimeLimit : null}
-            />
-          </div>
-        );
-      case 'finished':
-        return (
-          <div>
-            {/* Используем WinnerDisplay */}
-            <WinnerDisplay 
-              winnerFingerId={gameData.winnerFingerId} 
-              mode={gameData.mode} 
-            />
-            <Button onClick={() => navigate('/')} variant="primary" className="new-game-button">
-              Новая игра
-            </Button>
-          </div>
-        );
-      default:
-        return <div className="status-message">Неизвестный статус игры: {gameData.status}</div>;
-    }
+  
+  // Обработчик готовности (когда все пальцы поставлены)
+  const handleReadyToStart = (fingers) => {
+      console.log("All fingers placed:", fingers);
+      setPlacedFingers(fingers); // Сохраняем информацию о пальцах
+      setIsSelecting(true); // Запускаем анимацию выбора
+      // Не вызываем API здесь, API будет вызван после анимации
   };
 
- // --- Обработчики действий (заглушки, реализуем позже) --- 
-
-  // Вызывается, когда все пальцы на месте (из FingerPlacementArea)
-  const handleReadyToStart = async (fingers) => {
-      setLoading(true);
-      setError(null);
-      try {
-          // Используем startGameSelection из сервиса
-          const updatedGame = await startGameSelection(gameId, fingers);
-          setGameData(updatedGame);
-      } catch (err) {
-          console.error("Error starting selection:", err);
-          setError(err.message || 'Ошибка при старте выбора.');
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  // Обновляем обработчик выбора
-  const handlePerformSelection = async () => {
-    setLoading(true);
+  // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
+  const handlePerformSelection = async (selectedFingerId) => {
+    setLoading(true); // Показываем лоадер пока идет запрос
     setError(null);
-    setCurrentDisplayTask(null); // Очищаем предыдущую задачу перед запросом
+    setCurrentDisplayTask(null); 
     try {
-        const response = await selectWinnerOrTaskPlayer(gameId);
-        setGameData(response.game); // Обновляем основное состояние игры
+        // Передаем ID выбранного пальца (если режим "задание")
+        // Бэкенд сам решит, использовать ли ID или выбрать случайно (для режима "победитель")
+        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
+        setGameData(response.game); 
         
-        // Находим ИНДЕКС выбранного игрока в массиве players ИЗ ОБНОВЛЕННОГО gameData
-        const actualWinnerFingerId = response.game.winnerFingerId;
-        const winnerIndex = response.game.players.findIndex(p => p.fingerId === actualWinnerFingerId);
-        
-        // Устанавливаем индекс выбранного для подсветки в FingerPlacementArea
-        setSelectedPlayerIndex(winnerIndex !== -1 ? winnerIndex : null);
-        setHighlightedPlayerIndex(null); // Убираем текущую подсветку "мерцания"
-
-        // Устанавливаем задачу для отображения
         if (response.aiGeneratedTask) {
-            // Если пришла AI задача
             setCurrentDisplayTask(response.aiGeneratedTask);
         } else {
-            // Иначе используем задачу из обновленного gameData (может быть null)
             setCurrentDisplayTask(response.game.currentTask);
         }
+        // Анимация уже завершилась, подсветка на победителе осталась
+        // isSelecting должен стать false после обновления gameData (сделаем в fetchGameData)
+
     } catch (err) {
         console.error("Error performing selection:", err);
         setError(err.message || 'Ошибка при выборе.');
+        setIsSelecting(false); // Сбрасываем анимацию в случае ошибки
+        setHighlightedIndex(null);
     } finally {
-        setLoading(false);
+        // setLoading(false); // Лоадер сбросится при обновлении gameData в fetchGameData
+        // Вызовем fetchGameData без лоадера, чтобы обновить статус и сбросить isSelecting
+        fetchGameData(false); 
     }
   };
-
-  // Обновляем обработчик действия игрока
-  const handlePlayerAction = async (action) => {
-      const playerFingerId = gameData?.winnerFingerId; // Сохраняем ID игрока перед запросом
-      if (!gameData || gameData.status !== 'task_assigned' || playerFingerId === null) return;
+  
+    // Обработчик действия игрока (выполнить/провалить/выбыть)
+    const handlePlayerAction = async (action) => {
+      const playerFingerId = gameData?.winnerFingerId; 
+      if (!gameData || (gameData.status !== 'task_assigned' && gameData.status !== 'selecting') || playerFingerId === null) return; // Добавили selecting, т.к. результат теперь на этом экране
       
       setLoading(true);
       setError(null);
       setCurrentDisplayTask(null); 
-      // Очищаем предыдущий таймаут сообщения, если он был
       if (feedbackTimeoutRef.current) {
           clearTimeout(feedbackTimeoutRef.current);
           feedbackTimeoutRef.current = null;
-          setFeedbackMessage(null); // И сбрасываем сообщение сразу
+          setFeedbackMessage(null); 
       }
 
       try {
           const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
           setGameData(updatedGame);
           
-          // Показываем сообщение о выбывании
           if (action === 'eliminate') {
               const message = `Игрок #${playerFingerId} выбывает!`;
               setFeedbackMessage(message);
-              // Устанавливаем таймаут для скрытия сообщения
               feedbackTimeoutRef.current = setTimeout(() => {
                   setFeedbackMessage(null);
                   feedbackTimeoutRef.current = null;
-              }, 3000); // Показываем 3 секунды
-              // При выбывании сбрасываем selectedPlayerIndex, чтобы убрать подсветку
-              setSelectedPlayerIndex(null);
-          } 
-          // else if (action === 'complete_task') { ... можно добавить сообщение об успешном выполнении ... }
+                  // После сообщения о выбывании, возможно, нужно снова запросить данные игры
+                  // чтобы перейти к следующему раунду или завершению
+                  fetchGameData(false); 
+              }, 3000); 
+          } else {
+             // Если действие не выбывание, просто обновляем данные
+             fetchGameData(false); 
+          }
           
       } catch (err) {
           console.error("Error updating player status:", err);
           setError(err.message || 'Ошибка при обновлении статуса игрока.');
       } finally {
-          setLoading(false);
+          setLoading(false); // Убираем лоадер после всех действий
       }
+  };
+
+  // --- Рендеринг контента ---
+  const renderGameContent = () => {
+      if (!gameData) return null; // На всякий случай
+
+      // Состояния, когда отображается FingerPlacementArea
+      const showFingerArea = gameData.status === 'waiting' || isSelecting || gameData.status === 'selecting';
+      // Состояние, когда отображается результат выбора (задание или победитель)
+      const showSelectionResult = (gameData.status === 'task_assigned' || gameData.status === 'finished') && !isSelecting;
+
+      return (
+          <>
+              {showFingerArea && (
+                  <div>
+                      {/* Показываем заголовок в зависимости от состояния */}
+                      <h2>{isSelecting ? 'Выбираем...' : 'Ожидание игроков...'}</h2>
+                      <FingerPlacementArea 
+                          expectedPlayers={gameData.numPlayers}
+                          onReadyToStart={handleReadyToStart} 
+                          // Передаем доп. пропсы для анимации
+                          isSelecting={isSelecting} 
+                          highlightedIndex={highlightedIndex}
+                          placedFingersData={placedFingers} // Передаем данные о пальцах
+                          disabled={isSelecting || gameData.status !== 'waiting'} // Блокируем во время выбора
+                      />
+                  </div>
+              )}
+
+              {/* Показываем результат выбора ПОД областью пальцев */}
+              {showSelectionResult && gameData.status === 'task_assigned' && (
+                  <TaskDisplay 
+                      task={currentDisplayTask} 
+                      selectedPlayerFingerId={gameData.winnerFingerId}
+                      onAction={handlePlayerAction} 
+                      eliminationEnabled={gameData.eliminationEnabled}
+                      taskTimeLimit={gameData.eliminationEnabled ? gameData.taskTimeLimit : null}
+                  />
+              )}
+
+              {showSelectionResult && gameData.status === 'finished' && (
+                 <div>
+                     <WinnerDisplay 
+                        winnerFingerId={gameData.winnerFingerId} 
+                        mode={gameData.mode} 
+                     />
+                     <Button onClick={() => navigate('/')} variant="primary" className="new-game-button">
+                        Новая игра
+                     </Button>
+                 </div>
+              )}
+
+              {/* Убираем старую логику рендеринга по статусам, так как все объединено */}
+              {/* {gameData.status === 'waiting' && ... } */}
+              {/* {gameData.status === 'selecting' && ... } -> заменено на isSelecting */}
+              {/* {gameData.status === 'task_assigned' && ... } -> теперь показывается вместе с finger area или после */}
+              {/* {gameData.status === 'finished' && ... } -> теперь показывается вместе с finger area или после */}
+          </>
+      );
   };
 
 
@@ -293,13 +286,15 @@ function GameScreen() {
     <div className="game-container">
        {/* Отображаем сообщение обратной связи поверх всего */}
        {feedbackMessage && (
-           <div className="feedback-message show"> 
+           <div className={`feedback-message ${feedbackMessage ? 'show' : ''}`}> 
                {feedbackMessage}
            </div>
        )}
        
-      {/* Можно добавить общий заголовок или навигацию */} 
-      {renderGameContent()}
+       {/* Показываем лоадер поверх, если loading=true и это не фоновое обновление */}
+       {loading && <div className="loading-overlay">Загрузка...</div>}
+
+       {renderGameContent()}
     </div>
   );
 }
