@@ -14,7 +14,7 @@ const app = express();
 // --- Настройка CORS для Production --- 
 const allowedOrigins = [
     'http://localhost:3000', // Для локальной разработки
-    'https://choose-app-eta.vercel.app' // ВАШ URL!
+    'https://choose-app-seven.vercel.app/' // ВАШ URL!
 ];
 
 const corsOptions = {
