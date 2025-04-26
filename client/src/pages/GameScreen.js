@@ -310,13 +310,16 @@ function GameScreen() {
                  eliminationEnabled: response.game.eliminationEnabled
              });
         } else if (response.game.status === 'finished') {
-             // Можно показать сообщение о победителе, если нужно
-             setFeedbackMessage(`Игра завершена! Победитель: #${response.game.winnerFingerId}`);
-             // Оставить сообщение на несколько секунд
-             feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
+             // Статус finished, WinnerDisplay покажет победителя.
+             // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
+             // setFeedbackMessage(`Игра завершена! Победитель: #${response.game.winnerFingerId}`);
+             // if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+             // feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
+             setFeedbackMessage(null); // Убедимся, что сообщение сброшено
         } else {
             // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
             setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
+             if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
              feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
         }
 
