@@ -402,14 +402,6 @@ function GameScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSelecting, gameData, handlePerformSelection]);
 
-  if (error) {
-    return <div className="game-container status-message error-message">Ошибка: {error}</div>;
-  }
-
-  if (!gameData && !loading) {
-    return <div className="game-container status-message">Нет данных об игре.</div>;
-  }
-
   // --- ОБРАБОТЧИК ГОТОВНОСТИ К ВЫБОРУ (обернут в useCallback) ---
   const handleReadyToSelect = useCallback(async (fingers) => {
       console.log("GameScreen: handleReadyToSelect called with fingers:", fingers);
@@ -443,6 +435,14 @@ function GameScreen() {
       }
   }, [gameId]); // Добавляем зависимость gameId
   // --------------------------------------
+
+  if (error) {
+    return <div className="game-container status-message error-message">Ошибка: {error}</div>;
+  }
+
+  if (!gameData && !loading) {
+    return <div className="game-container status-message">Нет данных об игре.</div>;
+  }
 
   // --- Рендеринг контента ---
   const renderGameContent = () => {

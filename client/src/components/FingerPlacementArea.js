@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './FingerPlacementArea.css';
-import Button from './Button'; // Импортируем Button
 
 // Новый компонент FingerPlacementArea
 function FingerPlacementArea({
