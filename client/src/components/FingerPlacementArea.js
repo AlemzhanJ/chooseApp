@@ -112,8 +112,8 @@ function FingerPlacementArea({
           clearTimeout(readyTimeoutRef.current);
       }
     };
-  // Добавляем disabled в зависимости, чтобы перевесить слушатели при его изменении
-  }, [expectedPlayers, onReadyToStart, disabled, touchPoints]); 
+  // Убираем touchPoints из зависимостей, т.к. его изменение не должно влиять на слушатели и таймер
+  }, [expectedPlayers, onReadyToStart, disabled]); 
 
   return (
     // Добавляем класс `selecting` во время анимации
