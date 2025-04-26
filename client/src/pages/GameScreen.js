@@ -150,8 +150,8 @@ function GameScreen() {
 
   // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
   const handlePerformSelection = async (selectedFingerId) => {
-    // --- Добавляем визуальный индикатор --- 
-    setFeedbackMessage(`Внутри handlePerform(${selectedFingerId}). Загрузка...`);
+    // --- Убираем визуальный индикатор --- 
+    // setFeedbackMessage(`Внутри handlePerform(${selectedFingerId}). Загрузка...`);
     setLoading(true); 
     setError(null);
     setCurrentDisplayTask(null); 
@@ -173,8 +173,8 @@ function GameScreen() {
         console.error("Error performing selection:", err);
         const errorMsg = err.message || 'Ошибка при выборе.';
         setError(errorMsg);
-        // --- Добавляем визуальный индикатор --- 
-        setFeedbackMessage(`Ошибка выбора: ${errorMsg}`);
+        // --- Убираем визуальный индикатор --- 
+        // setFeedbackMessage(`Ошибка выбора: ${errorMsg}`);
         // Сбрасываем анимацию в случае ошибки
         setIsSelecting(false); 
         setHighlightedIndex(null);
