@@ -259,7 +259,7 @@ function GameScreen() {
           
           // Сохраняем пальцы и запускаем анимацию ТОЛЬКО после успеха API
           setGameData(updatedGame); // Обновляем gameData сразу
-          setPlacedFingers(updatedGame.players); // Используем данные из ответа API
+          setPlacedFingers(fingers); // ПРАВИЛЬНО! Используем `fingers` с координатами из аргумента.
           setIsSelecting(true); 
           
       } catch (err) {
