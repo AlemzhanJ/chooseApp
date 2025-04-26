@@ -104,13 +104,25 @@ function GameScreen() {
                 ? `Игрок #${playerFingerId} выбывает!`
                 : `Игрок #${playerFingerId} отметил выполнение.`; 
             setFeedbackMessage(message);
-            feedbackTimeoutRef.current = setTimeout(() => {
+            feedbackTimeoutRef.current = setTimeout(async () => {
                 setFeedbackMessage(null);
                 feedbackTimeoutRef.current = null;
-                fetchGameData(false); 
+                try {
+                    await fetchGameData(false);
+                } catch (fetchErr) {
+                    console.error("Error fetching game data after action:", fetchErr);
+                    setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
+                }
+                setLoading(false);
             }, 2000); 
         } else {
-           fetchGameData(false); 
+           try {
+               await fetchGameData(false);
+           } catch (fetchErr) {
+               console.error("Error fetching game data after action (no msg branch):", fetchErr);
+               setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
+           }
+           setLoading(false);
         }
         
     } catch (err) {
@@ -118,7 +130,6 @@ function GameScreen() {
         const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
         setError(errorMsg);
         setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); 
-    } finally {
         setLoading(false); 
     }
   }, [gameId, fetchGameData, gameData, feedbackMessage]);
