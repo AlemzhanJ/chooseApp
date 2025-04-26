@@ -277,8 +277,8 @@ exports.updatePlayerStatus = async (req, res) => {
              game.winnerFingerId = null; 
              // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление (ничья)
         } else {
-            // Продолжение игры
-            game.status = 'selecting'; 
+            // Продолжение игры: Возвращаем статус в 'waiting'
+            game.status = 'waiting';
             game.currentTask = null;
             game.winnerFingerId = null;
         }
