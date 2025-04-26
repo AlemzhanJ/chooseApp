@@ -249,45 +249,126 @@ exports.updatePlayerStatus = async (req, res) => {
     const player = game.players.find(p => p.fingerId.toString() === fingerId);
     if (!player) return res.status(404).json({ msg: 'Player not found in this game' });
 
-    if (game.mode === 'tasks' && game.status === 'task_assigned') {
+    // --- Логика для режима заданий --- 
+    if (game.mode === 'tasks' && (game.status === 'task_assigned' || game.status === 'selecting' || game.status === 'waiting')) { // Добавил selecting/waiting для lifted_finger
         if (action === 'eliminate') {
             if (game.eliminationEnabled && player.status === 'active') {
                 player.status = 'eliminated';
                 game.activePlayerCount -= 1;
             } else {
-                 return res.status(400).json({ msg: 'Cannot eliminate player or elimination is disabled' });
+                 return res.status(400).json({ msg: 'Cannot eliminate player now or elimination is disabled' });
             }
         } else if (action === 'complete_task') {
-            // Ничего не делаем с игроком
+            // Только в статусе task_assigned
+            if (game.status !== 'task_assigned') {
+                return res.status(400).json({ msg: 'Cannot complete task when not assigned' });
+            }
+            // Ничего не делаем со статусом игрока, он остается 'active'
+        } else if (action === 'lifted_finger') {
+            // Обработка поднятия пальца в любой момент активной игры
+            if (player.status === 'active') {
+                console.log(`Player ${fingerId} lifted finger. Eliminating.`);
+                player.status = 'eliminated';
+                game.activePlayerCount -= 1;
+                // Проверяем конец игры СРАЗУ после выбывания
+                 if (game.eliminationEnabled && game.activePlayerCount <= 1) {
+                    // Логика завершения игры (победитель или ничья)
+                    const winner = game.players.find(p => p.status === 'active');
+                    if (winner) {
+                        winner.status = 'winner';
+                        game.winnerFingerId = winner.fingerId;
+                        console.log(`Game finished due to finger lift. Winner: ${winner.fingerId}`);
+                    } else {
+                        game.winnerFingerId = null; // Ничья
+                         console.log(`Game finished due to finger lift. No winner (draw).`);
+                    }
+                    game.status = 'finished';
+                    game.currentTask = null; // Очищаем задание, если было
+                } else {
+                   // Если игрок поднял палец во время выбора, а игра продолжается,
+                   // нужно вернуть статус в 'waiting', чтобы выбор начался заново
+                   // с оставшимися игроками, когда они будут готовы.
+                   // Если игрок поднял палец во время задания другого игрока, статус не меняем.
+                   if (game.status === 'selecting') {
+                       console.log('Finger lifted during selection, returning to waiting');
+                       game.status = 'waiting';
+                       // Сбрасываем 'выбранного', если он был (хотя в selecting его еще нет)
+                       game.winnerFingerId = null; 
+                   } else if (game.status === 'task_assigned') {
+                       // Если игрок, выполнявший задание, поднял палец, 
+                       // то игра все равно вернется в 'waiting' после этой функции.
+                       // Если палец поднял другой игрок, статус task_assigned остается.
+                       console.log('Finger lifted during task assignment phase.');
+                   }
+                }
+            } else {
+                 // Игрок уже не активен, ничего не делаем
+                 console.log(`Player ${fingerId} lifted finger, but was already status: ${player.status}`);
+                 return res.status(400).json({ msg: `Player ${fingerId} is already ${player.status}` });
+            }
         } else {
-            return res.status(400).json({ msg: 'Invalid action' });
+            return res.status(400).json({ msg: 'Invalid action for tasks mode' });
         }
 
-        // Проверка на победителя или продолжение игры
-        if (game.eliminationEnabled && game.activePlayerCount === 1) {
-            const winner = game.players.find(p => p.status === 'active');
-            if (winner) {
-                winner.status = 'winner';
-                game.winnerFingerId = winner.fingerId;
+        // --- Общая логика после действия (если игра НЕ завершилась поднятием пальца) ---
+        if (game.status !== 'finished') {
+            if (action === 'complete_task' || (action === 'eliminate' && game.activePlayerCount > 0)) {
+                 // После выполнения задания или если выбыл не последний игрок
+                 // Проверяем, нужно ли завершать игру (даже после complete_task, если вдруг остался 1)
+                 if (game.eliminationEnabled && game.activePlayerCount === 1) {
+                     const winner = game.players.find(p => p.status === 'active');
+                     if (winner) {
+                         winner.status = 'winner';
+                         game.winnerFingerId = winner.fingerId;
+                         game.status = 'finished';
+                         console.log(`Game finished after action ${action}. Winner: ${winner.fingerId}`);
+                     } else { // Маловероятно, но возможно при race condition
+                         game.status = 'finished';
+                         game.winnerFingerId = null; 
+                         console.log(`Game finished after action ${action}. No winner.`);
+                     }
+                 } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
+                      game.status = 'finished'; // Ничья
+                      game.winnerFingerId = null;
+                      console.log(`Game finished after action ${action}. Draw.`);
+                 } else {
+                     // Если игра продолжается (больше 1 игрока или выбывание отключено)
+                     game.status = 'waiting'; // Возвращаем в ожидание для след. раунда/выбора
+                     console.log(`Action ${action} completed. Returning to waiting state.`);
+                 }
+                 game.currentTask = null;
+                 // game.winnerFingerId = null; // Не сбрасываем, если только что определили победителя
+                 if (game.status === 'waiting') game.winnerFingerId = null; // Сбрасываем только если перешли в waiting
+
+            } else if (action === 'eliminate' && game.activePlayerCount <= 0 && game.eliminationEnabled) {
+                // Все выбыли (ничья)
                 game.status = 'finished';
-                // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление
+                game.winnerFingerId = null;
+                game.currentTask = null;
+                console.log(`Game finished after elimination. Draw.`);
             }
-        } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
-             game.status = 'finished';
-             game.winnerFingerId = null; 
-             // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление (ничья)
-        } else {
-            // Продолжение игры: Возвращаем статус в 'waiting'
-            game.status = 'waiting';
-            game.currentTask = null;
-            game.winnerFingerId = null;
+            // Если action был 'lifted_finger' и игра не закончилась, статус уже обработан выше
         }
+    // --- Добавим блок else if для 'simple' режима, если там тоже нужно отслеживать пальцы --- 
+    // } else if (game.mode === 'simple' && action === 'lifted_finger') {
+    //     if (player.status === 'active' && (game.status === 'selecting' || game.status === 'waiting')) {
+    //         player.status = 'eliminated'; // В простом режиме это просто меняет статус
+    //         // Возможно, нужно остановить выбор и вернуть в waiting? Зависит от требований.
+    //         if (game.status === 'selecting') {
+    //             game.status = 'waiting';
+    //         }
+    //         console.log(`Player ${fingerId} lifted finger in simple mode.`);
+    //     } else {
+    //         return res.status(400).json({ msg: `Cannot process lift action for player ${fingerId} in state ${game.status}/${player.status}` });
+    //     }
     } else {
-      return res.status(400).json({ msg: `Cannot update player status in mode '${game.mode}' and status '${game.status}'` });
+      // Изначальная логика или ошибка для других режимов/статусов
+      return res.status(400).json({ msg: `Cannot update player status in mode '${game.mode}' and status '${game.status}' with action '${action}'` });
     }
 
     await game.save();
     // Получаем финальное состояние перед отправкой
+    // const finalGameState = await Game.findById(game.id).populate('currentTask'); // Populate если нужно
     const finalGameState = await Game.findById(game.id);
 
     // Отправляем ответ клиенту ПЕРЕД удалением

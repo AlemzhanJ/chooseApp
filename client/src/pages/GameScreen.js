@@ -32,8 +32,9 @@ function GameScreen() {
 
   // Новые состояния для анимации выбора
   const [isSelecting, setIsSelecting] = useState(false); 
-  const [highlightedIndex, setHighlightedIndex] = useState(null);
-  const [placedFingers, setPlacedFingers] = useState([]); // Сохраняем пальцы
+  // const [highlightedIndex, setHighlightedIndex] = useState(null); // Заменяем на ID
+  const [highlightedFingerId, setHighlightedFingerId] = useState(null);
+  // const [placedFingers, setPlacedFingers] = useState([]); // Больше не нужно, управляется внутри FingerPlacementArea
 
   // --- Состояние и Ref для таймера задания --- 
   const [timeLeft, setTimeLeft] = useState(null);
@@ -70,6 +71,57 @@ function GameScreen() {
   useEffect(() => {
     fetchGameData();
   }, [fetchGameData]); 
+
+  // --- НОВЫЙ ОБРАБОТЧИК: Поднятие пальца ---
+  const handleFingerLift = useCallback(async (liftedFingerId) => {
+      console.log(`GameScreen: handleFingerLift called for fingerId: ${liftedFingerId}`);
+      // Игру не трогаем, если она уже завершена или если палец поднят в состоянии waiting
+      if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting') {
+          console.log(`GameScreen: Ignoring finger lift in status: ${gameData?.status}`);
+          return;
+      }
+
+      // Проверяем, был ли этот игрок активен (избегаем двойного вызова)
+      const player = gameData.players.find(p => p.fingerId === liftedFingerId);
+      if (!player || player.status !== 'active') {
+          console.log(`GameScreen: Ignoring finger lift for non-active player: ${liftedFingerId}, status: ${player?.status}`);
+          return; // Игрок уже неактивен
+      }
+
+      // Показываем временный лоадер/сообщение
+      // setLoading(true); // Возможно, лоадер здесь не нужен, т.к. обновление быстрое
+      setError(null);
+      setFeedbackMessage(`Игрок #${liftedFingerId} убрал палец...`);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+
+      try {
+          const updatedGame = await updatePlayerStatus(gameId, liftedFingerId, 'lifted_finger');
+          setGameData(updatedGame);
+          // Очищаем сообщение сразу, т.к. результат виден по статусу игрока
+          setFeedbackMessage(null); 
+
+          // Если статус стал waiting (т.е. выбор прервался), останавливаем анимацию
+          if (updatedGame.status === 'waiting') {
+              console.log("Selection interrupted by finger lift, stopping animation.");
+              setIsSelecting(false);
+              setHighlightedFingerId(null);
+              if (animationIntervalRef.current) {
+                  clearTimeout(animationIntervalRef.current);
+                  animationIntervalRef.current = null;
+              }
+          }
+          // Если статус стал finished, WinnerDisplay отобразится автоматически
+
+      } catch (err) {
+          console.error("Error updating player status after finger lift:", err);
+          const errorMsg = err.message || 'Ошибка при обработке поднятия пальца.';
+          setError(errorMsg);
+          setFeedbackMessage(`Ошибка: ${errorMsg}`);
+      } finally {
+          // setLoading(false);
+      }
+  }, [gameId, gameData]); // Зависит от gameData для проверки статуса
+  // ----------------------------------------
 
   // --- Обработчик действия игрока --- 
   // Переносим сюда, чтобы он был определен до использования в useEffect таймера
@@ -161,6 +213,56 @@ function GameScreen() {
   }, [gameId, fetchGameData, gameData]); 
   // --- Конец переноса handlePlayerAction --- 
 
+  // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
+  // useCallback, т.к. используется в useEffect анимации
+  const handlePerformSelection = useCallback(async (selectedFingerId) => {
+    setLoading(true);
+    setError(null);
+    setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
+    setHighlightedFingerId(selectedFingerId); // Держим подсветку на выбранном
+    try {
+        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
+        setGameData(response.game); 
+        
+        const taskData = response.aiGeneratedTask || response.game.currentTask;
+        
+        if (taskData && response.game.status === 'task_assigned') {
+             // Устанавливаем feedbackMessage как объект задания
+             setFeedbackMessage({
+                 type: 'task', 
+                 taskData: taskData,
+                 playerFingerId: response.game.winnerFingerId,
+                 taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
+                 eliminationEnabled: response.game.eliminationEnabled
+             });
+        } else if (response.game.status === 'finished') {
+             // Статус finished, WinnerDisplay покажет победителя.
+             // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
+             setFeedbackMessage(null); // Убедимся, что сообщение сброшено
+        } else {
+            // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
+            setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
+             if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+             feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
+        }
+
+    } catch (err) {
+        console.error("Error performing selection:", err);
+        const errorMsg = err.message || 'Ошибка при выборе.';
+        setError(errorMsg);
+        setFeedbackMessage(`Ошибка API: ${errorMsg}`);
+        setIsSelecting(false); 
+        setHighlightedFingerId(null);
+    } finally {
+        // Запрашиваем данные еще раз, чтобы убедиться в актуальности всего состояния
+        await fetchGameData(false); 
+        setIsSelecting(false); 
+        setHighlightedFingerId(null); // Сбрасываем подсветку
+        setLoading(false); // Убираем лоадер после fetchGameData
+    }
+  }, [gameId, fetchGameData]); // Добавили зависимости
+  // ----------------------------------------------------
+
   useEffect(() => {
       return () => {
           // --- Логика удаления игры при выходе --- 
@@ -228,27 +330,38 @@ function GameScreen() {
 
   // Логика анимации мерцания
   useEffect(() => {
-    console.log("GameScreen: Animation useEffect triggered. isSelecting:", isSelecting, "placedFingers:", placedFingers);
-    if (!isSelecting || !placedFingers || placedFingers.length === 0) { // Добавил проверку placedFingers
-      console.log("GameScreen: Animation useEffect cleanup or aborting. isSelecting:", isSelecting, "placedFingers length:", placedFingers?.length);
+    console.log("GameScreen: Animation useEffect triggered. isSelecting:", isSelecting, "gameData.status:", gameData?.status);
+    // Добавляем проверку статуса
+    if (!isSelecting || !gameData || gameData.status !== 'selecting' || !gameData.players) {
+      console.log("GameScreen: Animation useEffect cleanup or aborting.", { isSelecting, status: gameData?.status });
       if (animationIntervalRef.current) {
         clearTimeout(animationIntervalRef.current); // Используем clearTimeout для рекурсивного setTimeout
         animationIntervalRef.current = null;
       }
-      setHighlightedIndex(null); 
+      setHighlightedFingerId(null);
       return;
     }
 
-    console.log("Starting selection animation...");
+    // Фильтруем активных игроков НА МОМЕНТ НАЧАЛА АНИМАЦИИ
+    const activePlayersForAnimation = gameData.players.filter(p => p.status === 'active');
+    console.log(`Starting selection animation with ${activePlayersForAnimation.length} active players...`);
+    if (activePlayersForAnimation.length === 0) {
+         console.warn("Animation started with 0 active players. Aborting.");
+         setIsSelecting(false); // Останавливаем, если нет игроков
+         return;
+    }
+
     let currentIndex = 0;
     let intervalTime = 300; 
     let cycles = 0;
-    const totalCycles = 15 + Math.floor(Math.random() * 10); 
+    const totalCycles = 10 + Math.floor(Math.random() * 6) * activePlayersForAnimation.length; // Зависит от числа игроков
     const accelerationPoint = Math.floor(totalCycles * 0.4); 
 
     // Функция для одного шага анимации
     const step = () => {
-        setHighlightedIndex(currentIndex % placedFingers.length);
+        // Получаем fingerId подсвечиваемого игрока из *отфильтрованного* массива
+        const playerToHighlight = activePlayersForAnimation[currentIndex % activePlayersForAnimation.length];
+        setHighlightedFingerId(playerToHighlight.fingerId);
       
         currentIndex++;
         cycles++;
@@ -261,19 +374,20 @@ function GameScreen() {
         // Остановка анимации или следующий шаг
         if (cycles >= totalCycles) {
             console.log("Animation finished. Selecting player...");
-            const winnerIndex = Math.floor(Math.random() * placedFingers.length);
-            const winnerFinger = placedFingers[winnerIndex];
-            setHighlightedIndex(winnerIndex); 
+            // Выбираем случайного из активных игроков
+            const winnerIndex = Math.floor(Math.random() * activePlayersForAnimation.length);
+            const winnerPlayer = activePlayersForAnimation[winnerIndex];
+            setHighlightedFingerId(winnerPlayer.fingerId); // Финальная подсветка
             // --- Добавляем визуальный индикатор --- 
-            setFeedbackMessage(`Выбран #${winnerFinger?.fingerId}. Вызов API...`);
-            handlePerformSelection(winnerFinger.fingerId); 
+            setFeedbackMessage(`Выбран #${winnerPlayer?.fingerId}. Вызов API...`);
+            handlePerformSelection(winnerPlayer.fingerId);
         } else {
             // Запускаем следующий таймаут с текущим (возможно, измененным) интервалом
             animationIntervalRef.current = setTimeout(step, intervalTime);
         }
     };
 
-    // Запускаем первый шаг
+    // Запускаем первый шаг, если есть активные игроки
     animationIntervalRef.current = setTimeout(step, intervalTime);
 
     // Очистка при размонтировании или изменении isSelecting/placedFingers
@@ -283,20 +397,22 @@ function GameScreen() {
         animationIntervalRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [isSelecting, placedFingers]);
+    // Зависим от isSelecting и gameData (для получения players)
+    // handlePerformSelection добавлена, т.к. используется внутри
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSelecting, gameData, handlePerformSelection]);
 
   if (error) {
     return <div className="game-container status-message error-message">Ошибка: {error}</div>;
   }
 
-  if (!gameData && !loading) { // Если данных нет, но загрузка уже прошла (или была убрана), показываем сообщение
+  if (!gameData && !loading) {
     return <div className="game-container status-message">Нет данных об игре.</div>;
   }
 
-  // Обработчик готовности (когда все пальцы поставлены)
-  const handleReadyToStart = async (fingers) => {
-      console.log("GameScreen: handleReadyToStart called with fingers:", fingers);
+  // --- ОБРАБОТЧИК ГОТОВНОСТИ К ВЫБОРУ ---
+  const handleReadyToSelect = async (fingers) => {
+      console.log("GameScreen: handleReadyToSelect called with fingers:", fingers);
       if (!fingers || fingers.length === 0) {
           console.error("GameScreen: Received empty fingers data!");
           return; 
@@ -304,78 +420,29 @@ function GameScreen() {
       
       setLoading(true); // Показываем лоадер пока идет запрос к бэкенду
       setError(null);
+      setFeedbackMessage("Начинаем выбор..."); // Индикация
       try {
           // --- Вызываем API для смены статуса на 'selecting' --- 
           console.log("GameScreen: Calling startGameSelection API...");
           const updatedGame = await startGameSelection(gameId, fingers);
           console.log("GameScreen: startGameSelection API successful. New status:", updatedGame.status);
           
-          // Сохраняем пальцы и запускаем анимацию ТОЛЬКО после успеха API
-          setGameData(updatedGame); // Обновляем gameData сразу
-          setPlacedFingers(fingers); // ПРАВИЛЬНО! Используем `fingers` с координатами из аргумента.
+          setGameData(updatedGame);
+          setFeedbackMessage(null); // Убираем сообщение "Начинаем выбор"
+          // setPlacedFingers(fingers); // Больше не нужно
           setIsSelecting(true); 
           
       } catch (err) {
           console.error("GameScreen: Error calling startGameSelection API:", err);
           setError(err.message || 'Ошибка при старте фазы выбора.');
+          setFeedbackMessage(null);
           // Не запускаем анимацию в случае ошибки
           setIsSelecting(false);
-          setPlacedFingers([]);
       } finally {
            setLoading(false); // Убираем лоадер
       }
   };
 
-  // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
-  const handlePerformSelection = async (selectedFingerId) => {
-    setLoading(true); 
-    setError(null);
-    setFeedbackMessage(null); // Очищаем предыдущее сообщение
-    try {
-        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
-        setGameData(response.game); 
-        
-        const taskData = response.aiGeneratedTask || response.game.currentTask;
-        
-        if (taskData && response.game.status === 'task_assigned') {
-             // Устанавливаем feedbackMessage как объект задания
-             setFeedbackMessage({
-                 type: 'task',
-                 taskData: taskData,
-                 playerFingerId: response.game.winnerFingerId,
-                 taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
-                 eliminationEnabled: response.game.eliminationEnabled
-             });
-        } else if (response.game.status === 'finished') {
-             // Статус finished, WinnerDisplay покажет победителя.
-             // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
-             // setFeedbackMessage(`Игра завершена! Победитель: #${response.game.winnerFingerId}`);
-             // if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-             // feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
-             setFeedbackMessage(null); // Убедимся, что сообщение сброшено
-        } else {
-            // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
-            setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
-             if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-             feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
-        }
-
-    } catch (err) {
-        console.error("Error performing selection:", err);
-        const errorMsg = err.message || 'Ошибка при выборе.';
-        setError(errorMsg);
-        setFeedbackMessage(`Ошибка API: ${errorMsg}`);
-        setIsSelecting(false); 
-        setHighlightedIndex(null);
-    } finally {
-        // Запрашиваем данные еще раз, чтобы убедиться в актуальности всего состояния
-        // setLoading(true) будет вызван внутри fetchGameData
-        await fetchGameData(false); 
-        setIsSelecting(false); 
-        setLoading(false); // Убираем лоадер после fetchGameData
-    }
-  };
-  
   // --- Рендеринг контента ---
   const renderGameContent = () => {
       if (!gameData) return null; 
@@ -385,7 +452,17 @@ function GameScreen() {
       // Определяем, когда показывать задание - БОЛЬШЕ НЕ НУЖНО
       // const showTask = gameData.status === 'task_assigned' && !isSelecting; 
       // Определяем, когда показывать победителя
-      const showWinner = gameData.status === 'finished' && !isSelecting;
+      const showWinner = gameData.status === 'finished'; // Не зависим от isSelecting
+
+      let title = 'Ожидание игроков...';
+      if (isSelecting) {
+          title = 'Выбираем...';
+      } else if (gameData.status === 'task_assigned') {
+          title = `Задание для #${gameData.winnerFingerId}...`;
+      } else if (gameData.status === 'waiting' && gameData.players?.length > 0) {
+          // Если вернулись в waiting после прерывания выбора/задания
+          title = 'Ожидание готовности...';
+      }
 
       return (
           <>
@@ -400,19 +477,23 @@ function GameScreen() {
                   />
               )} */}
 
+              {/* Сообщение с заданием отображается через feedbackMessage */} 
+
               {/* 2. Показываем Область пальцев (если нужно) */} 
               {showFingerArea && (
                   <div className="finger-area-container"> {/* Добавим контейнер для возможного позиционирования */} 
                       {/* Заголовок меняется */} 
-                      <h2>{isSelecting ? 'Выбираем...' : (gameData.status === 'task_assigned' ? `Задание активно...` : 'Ожидание игроков...')}</h2>
+                      <h2>{title}</h2>
                       <FingerPlacementArea 
                           expectedPlayers={gameData.numPlayers}
-                          onReadyToStart={handleReadyToStart} 
+                          // Передаем новые пропсы
+                          gameStatus={gameData.status}
+                          gamePlayers={gameData.players}
+                          onFingerLift={handleFingerLift}
+                          onReadyToSelect={handleReadyToSelect}
                           isSelecting={isSelecting} 
-                          highlightedIndex={highlightedIndex}
-                          placedFingersData={placedFingers} 
-                          // Блокируем, если идет выбор ИЛИ задание уже назначено
-                          disabled={isSelecting || gameData.status === 'task_assigned' || gameData.status === 'finished'} 
+                          highlightedFingerId={highlightedFingerId}
+                          // disabled больше не нужен
                       />
                   </div>
               )}
