@@ -22,22 +22,43 @@ function FingerPlacementArea({
     const touchArea = areaRef.current;
     if (!touchArea || disabled) return; // Если отключено, не добавляем слушатели
 
-    const checkReadyState = (currentTouchesCount) => {
+    const checkReadyState = (currentTouches) => {
         if (disabled) return; // Не реагируем, если отключено
+        const currentTouchesCount = currentTouches.length;
+
         if (currentTouchesCount === expectedPlayers) {
             if (!readyTimeoutRef.current) {
                 setIsReady(true);
                 touchArea.classList.add('ready');
                 console.log(`Starting ready timer (${expectedPlayers} fingers detected)...`);
+                // Сохраняем актуальные касания для использования в таймауте
+                const touchesAtTimeoutStart = currentTouches;
                 readyTimeoutRef.current = setTimeout(() => {
                     console.log('Ready timer finished! Calling onReadyToStart with touch points.');
-                    // Передаем координаты пальцев вместе с ID
-                    const fingersWithCoords = touchPoints.map((point, index) => ({
-                       fingerId: index, // Простой индекс 0, 1, 2...
-                       x: point.x, 
-                       y: point.y,
-                       touchId: point.id // Сохраняем touch ID на всякий случай
-                    }));
+                    
+                    // Получаем координаты относительно touchArea
+                    const touchAreaRect = areaRef.current?.getBoundingClientRect();
+                    if (!touchAreaRect) {
+                        console.error("Cannot get touch area rect in timeout");
+                        return;
+                    }
+
+                    // Генерируем координаты на основе касаний, сохраненных при старте таймаута
+                    const fingersWithCoords = [];
+                    for (let i = 0; i < touchesAtTimeoutStart.length; i++) {
+                         // Ограничиваем ожидаемым количеством игроков
+                         if (i >= expectedPlayers) break; 
+                         const touch = touchesAtTimeoutStart[i];
+                         const relativeX = touch.clientX - touchAreaRect.left;
+                         const relativeY = touch.clientY - touchAreaRect.top;
+                         fingersWithCoords.push({
+                            fingerId: i, 
+                            x: relativeX, 
+                            y: relativeY,
+                            touchId: touch.identifier
+                         });
+                    }
+                    console.log("Generated fingers with coords:", fingersWithCoords); // Лог для отладки
                     onReadyToStart(fingersWithCoords); 
                 }, 1500); 
             }
@@ -55,28 +76,28 @@ function FingerPlacementArea({
     const handleTouchStart = (event) => {
       if (disabled) return event.preventDefault(); // Предотвращаем действие по умолчанию, если отключено
       event.preventDefault();
-      const currentTouches = event.touches.length;
-      setActiveTouches(currentTouches);
-      updateTouchPoints(event.touches);
-      checkReadyState(currentTouches);
+      const currentTouches = event.touches;
+      setActiveTouches(currentTouches.length);
+      updateTouchPoints(currentTouches);
+      checkReadyState(currentTouches); // Передаем объект touches
     };
 
     const handleTouchEnd = (event) => {
       if (disabled) return event.preventDefault();
       event.preventDefault();
-      const currentTouches = event.touches.length;
-      setActiveTouches(currentTouches);
-      updateTouchPoints(event.touches);
-      checkReadyState(currentTouches);
+      const currentTouches = event.touches;
+      setActiveTouches(currentTouches.length);
+      updateTouchPoints(currentTouches);
+      checkReadyState(currentTouches); // Передаем объект touches
     };
 
     const handleTouchCancel = (event) => {
        if (disabled) return event.preventDefault();
        event.preventDefault();
-       const currentTouches = event.touches.length;
-       setActiveTouches(currentTouches);
-       updateTouchPoints(event.touches);
-       checkReadyState(currentTouches);
+       const currentTouches = event.touches;
+       setActiveTouches(currentTouches.length);
+       updateTouchPoints(currentTouches);
+       checkReadyState(currentTouches); // Передаем объект touches
     };
 
     const updateTouchPoints = (touches) => {
