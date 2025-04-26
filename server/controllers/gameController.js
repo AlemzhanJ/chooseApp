@@ -357,18 +357,31 @@ exports.updatePlayerStatus = async (req, res) => {
             player.status = 'eliminated'; // Помечаем поднявшего как выбывшего
             game.activePlayerCount -= 1;
 
-            // В простом режиме, если кто-то поднял палец, игра сразу заканчивается
-            const winner = game.players.find(p => p.status === 'active');
-            if (winner) {
+            // --- ПРОВЕРКА ПОСЛЕ ВЫБЫВАНИЯ --- 
+            if (game.activePlayerCount === 1) {
+                // Если остался один - он победитель
+                const winner = game.players.find(p => p.status === 'active');
                 winner.status = 'winner';
                 game.winnerFingerId = winner.fingerId;
+                game.status = 'finished';
                 console.log(`Game finished due to finger lift in simple mode. Winner: ${winner.fingerId}`);
-            } else {
-                // Если активных не осталось (например, подняли одновременно - маловероятно с touch)
-                game.winnerFingerId = null; 
-                console.log(`Game finished due to finger lift in simple mode. No winner.`);
-            }
-            game.status = 'finished';
+            } else if (game.activePlayerCount > 1) {
+                 // Если осталось больше одного - игра продолжается
+                 // Если выбор шел, возвращаем в ожидание для нового выбора
+                 if (game.status === 'selecting') {
+                     console.log('Selection interrupted in simple mode, returning to waiting.');
+                     game.status = 'waiting';
+                     game.winnerFingerId = null; // Сбрасываем, если был
+                 } else {
+                     // Если были в waiting, остаемся в waiting
+                     console.log('Finger lifted in simple waiting state, game continues.');
+                 }
+             } else {
+                 // Если активных не осталось (<= 0)
+                 game.status = 'finished';
+                 game.winnerFingerId = null; 
+                 console.log(`Game finished due to finger lift in simple mode. No winner.`);
+             }
             game.currentTask = null; // На всякий случай
         } else {
             // Игрок уже не активен или неподходящий статус игры
