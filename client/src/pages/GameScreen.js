@@ -26,10 +26,12 @@ function GameScreen() {
   const [error, setError] = useState(null);
   // Добавляем состояние для задачи, которая будет отображаться (из БД или AI)
   const [currentDisplayTask, setCurrentDisplayTask] = useState(null);
+  const [justEliminatedPlayerId, setJustEliminatedPlayerId] = useState(null);
 
   // Используем useCallback для мемоизации функции, чтобы избежать лишних вызовов useEffect
   const fetchGameData = useCallback(async () => {
     setError(null);
+    setJustEliminatedPlayerId(null);
     try {
       // Используем функцию getGame из сервиса
       const data = await getGame(gameId);
@@ -86,8 +88,9 @@ function GameScreen() {
       case 'selecting':
         return (
           <AnimationCanvas 
-            players={gameData.players} 
+            players={gameData.players.filter(p => p.status === 'active')}
             onSelectionTrigger={handlePerformSelection}
+            justEliminatedPlayerId={justEliminatedPlayerId}
           />
         );
       case 'task_assigned':
@@ -126,6 +129,7 @@ function GameScreen() {
   const handleReadyToStart = async (fingers) => {
       setLoading(true);
       setError(null);
+      setJustEliminatedPlayerId(null);
       try {
           // Используем startGameSelection из сервиса
           const updatedGame = await startGameSelection(gameId, fingers);
@@ -142,7 +146,8 @@ function GameScreen() {
   const handlePerformSelection = async () => {
     setLoading(true);
     setError(null);
-    setCurrentDisplayTask(null); // Очищаем предыдущую задачу перед запросом
+    setCurrentDisplayTask(null);
+    setJustEliminatedPlayerId(null);
     try {
         const response = await selectWinnerOrTaskPlayer(gameId);
         setGameData(response.game); // Обновляем основное состояние игры
@@ -168,13 +173,17 @@ function GameScreen() {
       if (!gameData || gameData.status !== 'task_assigned' || gameData.winnerFingerId === null) return;
       setLoading(true);
       setError(null);
-      setCurrentDisplayTask(null); // Очищаем задачу после действия
+      setCurrentDisplayTask(null);
+      setJustEliminatedPlayerId(null);
       try {
-          // Вызываем updatePlayerStatus, он вернет только обновленное состояние игры
-          const updatedGame = await updatePlayerStatus(gameId, gameData.winnerFingerId, action);
-          setGameData(updatedGame);
-          // Не нужно устанавливать currentDisplayTask здесь, 
-          // т.к. следующим шагом будет либо selecting, либо finished
+          // Получаем расширенный ответ от API
+          const response = await updatePlayerStatus(gameId, gameData.winnerFingerId, action);
+          setGameData(response.game); // Обновляем основное состояние
+          
+          // Если в ответе есть ID выбывшего, сохраняем его
+          if (response.eliminatedPlayerFingerId !== undefined) {
+              setJustEliminatedPlayerId(response.eliminatedPlayerFingerId);
+          }
       } catch (err) {
           console.error("Error updating player status:", err);
           setError(err.message || 'Ошибка при обновлении статуса игрока.');
