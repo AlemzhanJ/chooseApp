@@ -11,7 +11,6 @@ import './GameScreen.css'; // Добавим файл стилей позже
 // Импорт компонента
 import FingerPlacementArea from '../components/FingerPlacementArea';
 // import AnimationCanvas from '../components/AnimationCanvas'; // Эта строка уже закомментирована, но видимо остался старый импорт
-import TaskDisplay from '../components/TaskDisplay';
 import WinnerDisplay from '../components/WinnerDisplay';
 import Button from '../components/Button'; // Импортируем Button
 
