@@ -23,6 +23,12 @@ function FingerPlacementArea({
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
 
+  // --- Обновляем Ref при изменении State --- 
+  useEffect(() => {
+    activeTouchesRef.current = activeTouches;
+  }, [activeTouches]);
+  // ----------------------------------------
+
   // --- Сброс состояния при смене статуса игры (например, при возврате в waiting) ---
   useEffect(() => {
     // Сбрасываем пальцы, если игра перешла в неактивное состояние или ждет начала
