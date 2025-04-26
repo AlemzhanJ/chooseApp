@@ -349,18 +349,32 @@ exports.updatePlayerStatus = async (req, res) => {
             }
             // Если action был 'lifted_finger' и игра не закончилась, статус уже обработан выше
         }
-    // --- Добавим блок else if для 'simple' режима, если там тоже нужно отслеживать пальцы --- 
-    // } else if (game.mode === 'simple' && action === 'lifted_finger') {
-    //     if (player.status === 'active' && (game.status === 'selecting' || game.status === 'waiting')) {
-    //         player.status = 'eliminated'; // В простом режиме это просто меняет статус
-    //         // Возможно, нужно остановить выбор и вернуть в waiting? Зависит от требований.
-    //         if (game.status === 'selecting') {
-    //             game.status = 'waiting';
-    //         }
-    //         console.log(`Player ${fingerId} lifted finger in simple mode.`);
-    //     } else {
-    //         return res.status(400).json({ msg: `Cannot process lift action for player ${fingerId} in state ${game.status}/${player.status}` });
-    //     }
+    // --- Обработка lifted_finger для режима 'simple' --- 
+    } else if (game.mode === 'simple' && action === 'lifted_finger') {
+        // Обрабатываем только если палец поднят во время выбора или ожидания
+        if (player.status === 'active' && (game.status === 'selecting' || game.status === 'waiting')) {
+            console.log(`Player ${fingerId} lifted finger in simple mode during ${game.status}.`);
+            player.status = 'eliminated'; // Помечаем поднявшего как выбывшего
+            game.activePlayerCount -= 1;
+
+            // В простом режиме, если кто-то поднял палец, игра сразу заканчивается
+            const winner = game.players.find(p => p.status === 'active');
+            if (winner) {
+                winner.status = 'winner';
+                game.winnerFingerId = winner.fingerId;
+                console.log(`Game finished due to finger lift in simple mode. Winner: ${winner.fingerId}`);
+            } else {
+                // Если активных не осталось (например, подняли одновременно - маловероятно с touch)
+                game.winnerFingerId = null; 
+                console.log(`Game finished due to finger lift in simple mode. No winner.`);
+            }
+            game.status = 'finished';
+            game.currentTask = null; // На всякий случай
+        } else {
+            // Игрок уже не активен или неподходящий статус игры
+            console.log(`Ignoring finger lift for player ${fingerId} in simple mode. Player status: ${player.status}, Game status: ${game.status}`);
+            return res.status(400).json({ msg: `Cannot process lift action for player ${fingerId} in state ${game.status}/${player.status}` });
+        }
     } else {
       // Изначальная логика или ошибка для других режимов/статусов
       return res.status(400).json({ msg: `Cannot update player status in mode '${game.mode}' and status '${game.status}' with action '${action}'` });

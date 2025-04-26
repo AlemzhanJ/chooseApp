@@ -412,7 +412,6 @@ function GameScreen() {
       
       setLoading(true); // Показываем лоадер пока идет запрос к бэкенду
       setError(null);
-      setFeedbackMessage("Начинаем выбор..."); // Индикация
       try {
           // --- Вызываем API для смены статуса на 'selecting' --- 
           console.log("GameScreen: Calling startGameSelection API...");
@@ -420,15 +419,11 @@ function GameScreen() {
           console.log("GameScreen: startGameSelection API successful. New status:", updatedGame.status);
           
           setGameData(updatedGame);
-          setFeedbackMessage(null); // Убираем сообщение "Начинаем выбор"
-          // setPlacedFingers(fingers); // Больше не нужно
           setIsSelecting(true); 
           
       } catch (err) {
           console.error("GameScreen: Error calling startGameSelection API:", err);
           setError(err.message || 'Ошибка при старте фазы выбора.');
-          setFeedbackMessage(null);
-          // Не запускаем анимацию в случае ошибки
           setIsSelecting(false);
       } finally {
            setLoading(false); // Убираем лоадер
