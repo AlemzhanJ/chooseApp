@@ -67,12 +67,22 @@ function FingerPlacementArea({ expectedPlayers, onReadyToStart }) {
 
     // Функция для обновления координат точек касания для визуализации
     const updateTouchPoints = (touches) => {
+        const touchAreaElement = areaRef.current; // Получаем элемент
+        if (!touchAreaElement) return; // Проверка, если элемента еще нет
+        
+        const areaRect = touchAreaElement.getBoundingClientRect(); // Получаем геометрию области
         const points = [];
+
         for (let i = 0; i < touches.length; i++) {
+            // Вычисляем координаты относительно touch-area
+            const relativeX = touches[i].clientX - areaRect.left;
+            const relativeY = touches[i].clientY - areaRect.top;
+            
             points.push({
                 id: touches[i].identifier,
-                x: touches[i].clientX,
-                y: touches[i].clientY,
+                // Используем относительные координаты
+                x: relativeX, 
+                y: relativeY,
             });
         }
         setTouchPoints(points);
