@@ -206,4 +206,34 @@
 .task-active-text {
     font-weight: bold;
     color: #333;
+}
+
+/* --- Стили для таймера обратного отсчета перед стартом --- */
+.countdown-timer-container {
+    width: 80%; /* Не на всю ширину */
+    max-width: 300px;
+    height: 22px; /* Чуть выше */
+    background-color: #e9ecef;
+    border-radius: 11px;
+    margin-top: 15px; /* Отступ от текста "Все пальцы на месте!" */
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #ced4da;
+}
+
+.countdown-timer-bar {
+    height: 100%;
+    background-color: #ffc107; /* Желтый */
+    border-radius: 11px;
+    transition: width 0.5s linear; /* Плавное уменьшение */
+}
+
+.countdown-timer-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #343a40; /* Темный текст для контраста с желтым */
+    font-size: 0.9em;
+    font-weight: bold;
 } 

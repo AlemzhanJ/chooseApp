@@ -13,6 +13,11 @@ function FingerPlacementArea({
   isSelecting, // Для управления анимацией/состоянием
 }) {
   const [activeTouches, setActiveTouches] = useState([]); // { touchId: number, fingerId: number, x: number, y: number }
+  // --- Состояние и Ref для таймера автостарта --- 
+  const [countdown, setCountdown] = useState(null); // null | number (секунды)
+  const countdownTimerRef = useRef(null);
+  const COUNTDOWN_DURATION = 3; // Длительность отсчета в секундах
+  // ---------------------------------------------
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
@@ -128,10 +133,16 @@ function FingerPlacementArea({
       if (fingerId !== undefined) {
          console.log(`Finger lifted: ID ${fingerId}, TouchID ${touch.identifier}`);
          fingerIdMap.current.delete(touch.identifier); // Удаляем связь
-         // Вызываем колбэк для GameScreen, если игра уже началась (не waiting)
-         // В режиме waiting поднятие пальца просто убирает его без последствий
-         if (gameStatus !== 'waiting') {
+         // Если палец поднят во время активной игры (не waiting), вызываем onFingerLift
+         if (gameStatus !== 'waiting' && gameStatus !== 'finished') {
              onFingerLift(fingerId);
+         }
+         // Если палец убран во время отсчета (в статусе waiting), останавливаем таймер
+         if (gameStatus === 'waiting' && countdownTimerRef.current) {
+             console.log('Finger lifted during countdown, stopping timer.');
+             clearInterval(countdownTimerRef.current);
+             countdownTimerRef.current = null;
+             setCountdown(null);
          }
          // Удаляем касание из состояния
          setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touch.identifier));
@@ -159,8 +170,51 @@ function FingerPlacementArea({
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-  // --- Определяем, готовы ли к выбору ---
-  const canStartSelection = gameStatus === 'waiting' && activeTouches.length === expectedPlayers;
+  // --- Эффект для запуска таймера автостарта ---
+  useEffect(() => {
+      // Проверяем условия: статус waiting, нужное кол-во пальцев, таймер еще не запущен
+      if (gameStatus === 'waiting' && activeTouches.length === expectedPlayers && !countdownTimerRef.current) {
+          console.log('All fingers placed, starting auto-start countdown...');
+          setCountdown(COUNTDOWN_DURATION);
+          countdownTimerRef.current = setInterval(() => {
+              setCountdown(prevCountdown => {
+                  if (prevCountdown === null) { // Доп. проверка, если таймер успел сброситься
+                      clearInterval(countdownTimerRef.current);
+                      countdownTimerRef.current = null;
+                      return null;
+                  }
+                  const nextCountdown = prevCountdown - 1;
+                  if (nextCountdown <= 0) {
+                      console.log('Countdown finished, calling onReadyToSelect.');
+                      clearInterval(countdownTimerRef.current);
+                      countdownTimerRef.current = null;
+                      // Вызываем колбэк с текущими пальцами
+                      // Небольшая задержка, чтобы 0 успел отобразиться
+                      setTimeout(() => onReadyToSelect(activeTouches.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y }))), 50);
+                      return 0;
+                  }
+                  return nextCountdown;
+              });
+          }, 1000);
+      } else if (activeTouches.length < expectedPlayers && countdownTimerRef.current) {
+          // Если убрали палец во время отсчета (условие дублируется в handleTouchEnd, но для надежности)
+          console.log('Finger removed during countdown (detected by useEffect), stopping timer.');
+          clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+          setCountdown(null);
+      }
+
+      // Очистка при размонтировании
+      return () => {
+          if (countdownTimerRef.current) {
+              clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+          }
+      };
+  // Зависим от количества касаний и статуса игры для старта/остановки таймера
+  // onReadyToSelect нужен для вызова внутри таймера
+  }, [activeTouches, gameStatus, expectedPlayers, onReadyToSelect]);
+  // ----------------------------------------
 
   // --- Получаем статус игрока по fingerId ---
   const getPlayerStatus = (fingerId) => {
@@ -172,7 +226,7 @@ function FingerPlacementArea({
   return (
     <div
       ref={areaRef}
-      className={`finger-area ${isSelecting ? 'selecting' : ''} status-${gameStatus}`}
+      className={`finger-area ${isSelecting ? 'selecting' : ''} status-${gameStatus} ${countdown !== null ? 'counting-down' : ''}`}
       // style={{ touchAction: 'none' }} // Предотвращаем стандартные действия браузера
     >
       {/* Отображаем активные касания */}
@@ -200,19 +254,14 @@ function FingerPlacementArea({
                 ? `Положите пальцы (${activeTouches.length}/${expectedPlayers})`
                 : 'Все пальцы на месте!'
             }
+            {/* Показываем таймер, если он активен */}
+            {countdown !== null && (
+                <div className="countdown-timer-container">
+                    <div className="countdown-timer-bar" style={{ width: `${(countdown / COUNTDOWN_DURATION) * 100}%` }}></div>
+                    <span className="countdown-timer-text">Старт через {countdown}...</span>
+                </div>
+            )}
         </div>
-      )}
-
-      {/* Кнопка "Начать выбор" */}
-      {canStartSelection && (
-         <Button
-             onClick={() => onReadyToSelect(activeTouches.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })))}
-             variant="primary"
-             className="start-selection-button"
-             disabled={isSelecting} // Блокируем во время выбора
-         >
-             Начать выбор!
-         </Button>
       )}
 
       {/* Можно добавить сообщение во время выбора */}
