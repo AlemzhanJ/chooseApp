@@ -249,15 +249,11 @@ function GameScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps 
   }, [isSelecting, placedFingers]);
 
-  if (loading && !gameData) { // Показываем лоадер только при первой загрузке
-    return <div className="game-container status-message">Загрузка игры...</div>;
-  }
-
   if (error) {
     return <div className="game-container status-message error-message">Ошибка: {error}</div>;
   }
 
-  if (!gameData && !loading) { // Если не грузится и данных нет
+  if (!gameData && !loading) { // Если данных нет, но загрузка уже прошла (или была убрана), показываем сообщение
     return <div className="game-container status-message">Нет данных об игре.</div>;
   }
 
@@ -446,8 +442,6 @@ function GameScreen() {
            </div>
        )}
        {/* ----------------------------------------- */} 
-       
-       {loading && <div className="loading-overlay">Загрузка...</div>}
 
       {renderGameContent()}
     </div>
