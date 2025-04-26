@@ -128,4 +128,82 @@
 .touch-area.disabled {
     /* Можно добавить стиль для заблокированной области, например, полупрозрачность */
     /* opacity: 0.7; */ 
+}
+
+.finger-area {
+    position: relative; /* Нужно для позиционирования кругов */
+    width: 100%;
+    /* height: 300px; Заменяем на flex-grow для заполнения пространства */
+    flex-grow: 1; /* Занимает доступное пространство в flex-контейнере */
+    background-color: #e0f2e9; /* Светло-зеленый фон */
+    border: 2px dashed #a5d6a7; /* Пунктирная граница */
+    border-radius: 15px; /* Скругленные углы */
+    display: flex;
+    flex-direction: column; /* Элементы внутри будут располагаться вертикально */
+    justify-content: center; /* Центрируем контент (инструкции/кнопку) по вертикали */
+    align-items: center; /* Центрируем контент по горизонтали */
+    overflow: hidden; /* Скрываем круги, выходящие за пределы */
+    margin: 10px 0; /* Небольшой отступ сверху/снизу */
+    touch-action: none; /* Отключаем стандартные действия браузера на касания (скролл, зум) */
+    user-select: none; /* Запрещаем выделение текста */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Стили для кругов пальцев */
+.finger-circle {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background-color: #ffcc80; /* Оранжевый */
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: #fff;
+    font-size: 1.2em;
+    border: 3px solid #ffa726; /* Темнее оранжевый */
+    transform: translate(-50%, -50%); /* Центрируем круг относительно точки касания */
+    pointer-events: none; /* Круги не должны мешать касаниям области */
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.1s linear; /* Плавность + быстрое перемещение */
+}
+
+/* Подсветка во время выбора */
+.finger-circle.highlighted {
+    background-color: #f44336; /* Красный */
+    border-color: #c62828; /* Темнее красный */
+    transform: translate(-50%, -50%) scale(1.15); /* Немного увеличиваем */
+}
+
+/* Стиль для выбывших игроков */
+.finger-circle.status-eliminated {
+    background-color: #bdbdbd; /* Серый */
+    border-color: #757575;
+    opacity: 0.6;
+}
+
+/* Стили для инструкций */
+.instructions {
+    color: #555;
+    font-size: 1.1em;
+    text-align: center;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+}
+
+/* Стили для кнопки "Начать выбор" */
+.start-selection-button {
+    margin-top: 20px; /* Отступ сверху от инструкции */
+    padding: 12px 25px;
+    font-size: 1.1em;
+}
+
+/* Текст во время выбора или задания */
+.selecting-text,
+.task-active-text {
+    font-weight: bold;
+    color: #333;
 } 
