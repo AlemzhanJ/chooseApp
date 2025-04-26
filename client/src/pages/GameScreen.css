@@ -47,25 +47,109 @@
 /* Оставляем как есть, но можно поменять цвет фона */
 .feedback-message {
   position: fixed; 
-  top: 20px;       
-  left: 50%;       
-  transform: translateX(-50%) translateY(-150%); 
-  /* Меняем фон на основной голубой */
-  background-color: #5DADE2; /* Голубой фон */
-  /* background-color: rgba(0, 0, 0, 0.8); */
-  color: white;
-  padding: 15px 25px;
-  border-radius: 30px; /* Делаем сильно скругленным */
-  font-size: 1.2em; /* Немного уменьшим */
-  font-weight: 700;
-  z-index: 1000; 
+  top: 70px; /* Ниже хедера */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  border-radius: 12px;
+  padding: 10px 20px;
   opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease-out; /* Добавим "выпрыгивающий" эффект */
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.3s ease-out, top 0.3s ease-out;
+  pointer-events: none;
+  min-width: 200px; /* Минимальная ширина */
   text-align: center;
 }
 
 .feedback-message.show {
-  transform: translateX(-50%) translateY(0); 
   opacity: 1;
+  top: 80px; /* Появляется чуть ниже */
+  pointer-events: auto;
+}
+
+/* Стили для простого уведомления */
+.feedback-message.simple-notification {
+    background-color: #3498db; /* Синий цвет для обычных сообщений */
+    color: white;
+}
+
+/* Стили для уведомления с заданием */
+.feedback-message.task-notification {
+    background-color: #f8f9fa; /* Светлый фон для задания */
+    color: #333;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 15px 20px;
+    max-width: 90%;
+    width: auto; /* Авто ширина по контенту */
+    text-align: left; /* Выравнивание по левому краю */
+    display: flex; /* Используем flex для значка */
+    flex-direction: column; /* Элементы в столбец */
+}
+
+.ai-badge.small {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-size: 0.8em;
+    background-color: #e8dcff;
+    color: #6f42c1;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.task-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+
+.task-text-popup {
+    margin-bottom: 15px;
+    font-size: 1em;
+    line-height: 1.4;
+}
+
+.timer-container-popup {
+    width: 100%;
+    height: 18px; /* Немного выше */
+    background-color: #e9ecef;
+    border-radius: 9px;
+    margin-bottom: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.timer-bar-popup {
+    height: 100%;
+    background-color: #28a745; /* Зеленый */
+    border-radius: 9px;
+    transition: width 0.5s linear; /* Плавный переход */
+}
+
+.timer-text-popup {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.task-actions-popup {
+    display: flex;
+    justify-content: space-around; /* Равномерно распределяем кнопки */
+    align-items: center;
+    width: 100%;
+}
+
+.task-actions-popup .action-button.small {
+    padding: 8px 16px; /* Уменьшаем кнопки */
+    font-size: 0.9em;
+    min-width: 80px; /* Минимальная ширина */
+}
+
+.finger-area-container {
+    margin-top: 20px; /* Добавляем отступ сверху, если есть уведомление */
 } 
