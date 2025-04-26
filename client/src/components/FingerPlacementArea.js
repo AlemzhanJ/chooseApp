@@ -39,6 +39,10 @@ function FingerPlacementArea({
      }
   }, [gameStatus]);
 
+  // --- Вычисляем количество активных игроков, ожидаемых на экране --- 
+  const activePlayersExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? expectedPlayers;
+  // ----------------------------------------------------------------
+
   // --- Получение координат относительно области ---
   const getRelativeCoords = useCallback((touch) => {
     if (!areaRef.current) return null;
@@ -181,8 +185,9 @@ function FingerPlacementArea({
   useEffect(() => {
       // Проверяем условия: статус waiting, нужное кол-во пальцев, таймер еще не запущен
       // Используем activeTouchesRef для получения актуальной длины внутри эффекта
-      const currentTouchCount = activeTouchesRef.current.length;
-      if (gameStatus === 'waiting' && currentTouchCount === expectedPlayers && !countdownTimerRef.current) {
+      const currentTouches = activeTouchesRef.current; // Получаем массив касаний из ref
+      // Сравниваем количество ТЕКУЩИХ КАСАНИЙ с ОЖИДАЕМЫМ КОЛИЧЕСТВОМ АКТИВНЫХ ИГРОКОВ
+      if (gameStatus === 'waiting' && currentTouches.length === activePlayersExpectedCount && activePlayersExpectedCount > 0 && !countdownTimerRef.current) {
           console.log('All fingers placed, starting auto-start countdown...');
           setCountdown(COUNTDOWN_DURATION);
           countdownTimerRef.current = setInterval(() => {
@@ -199,14 +204,17 @@ function FingerPlacementArea({
                       setCountdown(null);
                       clearInterval(countdownTimerRef.current);
                       countdownTimerRef.current = null;
-                       // Вызываем колбэк с пальцами из ref (актуальные координаты)
-                      onReadyToSelect(activeTouchesRef.current.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })));
-                      return null; // Возвращаем null, т.к. отсчет закончился
+                       // Передаем только те пальцы, которые соответствуют АКТИВНЫМ игрокам на момент старта
+                       const fingersToStart = activeTouchesRef.current.filter(touch => 
+                           gamePlayers?.find(p => p.fingerId === touch.fingerId && p.status === 'active')
+                       );
+                       onReadyToSelect(fingersToStart.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })));
+                       return null; // Возвращаем null, т.к. отсчет закончился
                   }
                   return nextCountdown;
               });
           }, 1000);
-      } else if (currentTouchCount < expectedPlayers && countdownTimerRef.current) {
+      } else if (currentTouches.length < activePlayersExpectedCount && countdownTimerRef.current) {
           // Если убрали палец во время отсчета (условие дублируется в handleTouchEnd, но для надежности)
           console.log('Finger removed during countdown (detected by useEffect), stopping timer.');
           clearInterval(countdownTimerRef.current);
@@ -223,9 +231,9 @@ function FingerPlacementArea({
       };
   // Зависим от количества касаний и статуса игры для старта/остановки таймера
   // onReadyToSelect нужен для вызова внутри таймера
-  // Убираем activeTouches из зависимостей, используем activeTouches.length
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [activeTouches.length, gameStatus, expectedPlayers, onReadyToSelect]);
+  // Теперь зависим от activePlayersExpectedCount вместо expectedPlayers
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTouches.length, gameStatus, activePlayersExpectedCount, onReadyToSelect]);
   // ----------------------------------------
 
   // --- Получаем статус игрока по fingerId ---
@@ -263,7 +271,7 @@ function FingerPlacementArea({
       {!isSelecting && gameStatus === 'waiting' && (
         <div className="instructions">
             {activeTouches.length < expectedPlayers
-                ? `Положите пальцы (${activeTouches.length}/${expectedPlayers})`
+                ? `Положите пальцы (${activeTouches.length}/${activePlayersExpectedCount})`
                 : 'Все пальцы на месте!'
             }
             {/* Показываем таймер, если он активен */}
