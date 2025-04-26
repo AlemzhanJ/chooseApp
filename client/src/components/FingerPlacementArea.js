@@ -3,113 +3,84 @@ import React, { useState, useEffect, useRef } from 'react';
 // import Button from './Button'; 
 import './FingerPlacementArea.css'; // Добавим стили
 
-function FingerPlacementArea({ 
-  expectedPlayers, 
-  onReadyToStart,
-  // Новые пропсы
-  isAnimating = false, 
-  highlightedFingerId = null,
-  onFingerRemoved = () => {},
-  placedFingers = [] // Массив с данными пальцев из GameScreen { fingerId, x, y ...?}
-}) {
-  // activeTouches и isReady, возможно, больше не нужны в том же виде
-  // const [activeTouches, setActiveTouches] = useState(0);
-  const [touchPoints, setTouchPoints] = useState([]); // Оставляем для координат
+function FingerPlacementArea({ expectedPlayers, onReadyToStart, players = [], highlightedPlayerIndex = null, selectedPlayerIndex = null, isSelecting = false }) {
+  const [activeTouches, setActiveTouches] = useState(0);
+  const [touchPoints, setTouchPoints] = useState([]); // Для визуализации касаний
   const areaRef = useRef(null);
-  // const [isReady, setIsReady] = useState(false);
-
-  // Присваиваем fingerId точкам при первом рендере или изменении placedFingers
-  useEffect(() => {
-    // Если анимация не идет, используем данные из placedFingers, если они есть
-    if (!isAnimating && placedFingers.length > 0) {
-        setTouchPoints(placedFingers.map((finger, index) => ({
-            id: finger.fingerId, // Используем fingerId как ID
-            fingerId: finger.fingerId, // Добавляем fingerId
-            x: finger.x, // Нужны координаты из GameScreen
-            y: finger.y
-        })));
-    } else if (!isAnimating && placedFingers.length === 0) {
-        // Если нет placedFingers, очищаем точки
-        setTouchPoints([]);
-    }
-    // Если isAnimating, touchPoints не должны меняться здесь, они управляются touchend
-  }, [placedFingers, isAnimating]);
+  const [isReady, setIsReady] = useState(false); // Состояние готовности для стилей
+  const readyTimeoutRef = useRef(null);
 
   useEffect(() => {
     const touchArea = areaRef.current;
     if (!touchArea) return;
 
-    // Убираем старую логику checkReadyState и readyTimeoutRef
+    const checkReadyState = (currentTouchesCount) => {
+        if (currentTouchesCount === expectedPlayers) {
+            // Если нужное количество пальцев есть, запускаем таймер
+            if (!readyTimeoutRef.current) {
+                setIsReady(true); // Меняем стиль
+                touchArea.classList.add('ready');
+                console.log(`Starting ready timer (${expectedPlayers} fingers detected)...`);
+                readyTimeoutRef.current = setTimeout(() => {
+                    console.log('Ready timer finished! Calling onReadyToStart.');
+                    const fingers = Array.from({ length: expectedPlayers }, (_, i) => ({ fingerId: i }));
+                    onReadyToStart(fingers); 
+                    // Можно добавить вибрацию
+                    // if (navigator.vibrate) { navigator.vibrate(200); }
+                }, 1500); // Задержка в 1.5 секунды
+            }
+        } else {
+            // Если количество пальцев изменилось, сбрасываем таймер и стиль
+            if (readyTimeoutRef.current) {
+                console.log('Clearing ready timer (finger removed).');
+                clearTimeout(readyTimeoutRef.current);
+                readyTimeoutRef.current = null;
+            }
+            setIsReady(false);
+            touchArea.classList.remove('ready');
+        }
+    }
 
     const handleTouchStart = (event) => {
       event.preventDefault();
-      // Игнорируем новые касания во время анимации
-      if (isAnimating) return;
-      
+      const currentTouches = event.touches.length;
+      setActiveTouches(currentTouches);
       updateTouchPoints(event.touches);
-      // Сразу вызываем onReadyToStart, если количество пальцев достигнуто
-      if (event.touches.length === expectedPlayers) {
-          const fingers = touchPoints.map(tp => ({ fingerId: tp.fingerId, x: tp.x, y: tp.y }));
-          onReadyToStart(fingers); // Передаем пальцы с координатами
-      }
+      checkReadyState(currentTouches);
     };
 
     const handleTouchEnd = (event) => {
       event.preventDefault();
-      const remainingTouches = event.touches;
-
-      if (isAnimating) {
-        // Определяем, какой палец был убран
-        const currentTouchIds = new Set(Array.from(remainingTouches).map(t => t.identifier));
-        const removedPoint = touchPoints.find(p => !currentTouchIds.has(p.id));
-        
-        if (removedPoint && removedPoint.fingerId !== undefined) {
-            console.log(`FingerPlacementArea: Finger ${removedPoint.fingerId} removed during animation.`);
-            onFingerRemoved(removedPoint.fingerId);
-            // Обновляем touchPoints, чтобы убранный палец исчез visually
-            setTouchPoints(prevPoints => prevPoints.filter(p => p.id !== removedPoint.id));
-        } else {
-             console.warn('Could not determine which finger was removed during animation.');
-        }
-        // Не обновляем activeTouches и не вызываем checkReadyState
-      } else {
-        // Обычный режим (не анимация)
-        updateTouchPoints(remainingTouches);
-        // Если количество пальцев стало меньше нужного, можно сбросить готовность
-        // (хотя GameScreen теперь управляет этим)
-      }
+      const currentTouches = event.touches.length;
+      setActiveTouches(currentTouches);
+      updateTouchPoints(event.touches);
+      checkReadyState(currentTouches);
     };
 
-    // handleTouchCancel аналогичен handleTouchEnd в контексте анимации
     const handleTouchCancel = (event) => {
-        handleTouchEnd(event); // Используем ту же логику
+      event.preventDefault();
+      const currentTouches = event.touches.length;
+      setActiveTouches(currentTouches);
+      updateTouchPoints(event.touches);
+      checkReadyState(currentTouches);
     };
 
-    // Обновленная функция updateTouchPoints 
+    // Функция для обновления координат точек касания для визуализации
     const updateTouchPoints = (touches) => {
-        const touchAreaElement = areaRef.current;
-        if (!touchAreaElement) return;
-        const areaRect = touchAreaElement.getBoundingClientRect();
-        const points = [];
+        const touchAreaElement = areaRef.current; // Получаем элемент
+        if (!touchAreaElement) return; // Проверка, если элемента еще нет
         
-        // Используем стабильные fingerId, если они уже есть
-        const existingPoints = touchPoints.reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-        }, {});
+        const areaRect = touchAreaElement.getBoundingClientRect(); // Получаем геометрию области
+        const points = [];
 
         for (let i = 0; i < touches.length; i++) {
-            const touch = touches[i];
-            const relativeX = touch.clientX - areaRect.left;
-            const relativeY = touch.clientY - areaRect.top;
+            // Вычисляем координаты относительно touch-area
+            const relativeX = touches[i].clientX - areaRect.left;
+            const relativeY = touches[i].clientY - areaRect.top;
             
-            // Пытаемся сохранить fingerId, если точка уже была
-            const existingPoint = existingPoints[touch.identifier];
-            const fingerId = existingPoint?.fingerId ?? i; // Присваиваем новый ID (0, 1, ...) если точки не было
-
             points.push({
-                id: touch.identifier,
-                fingerId: fingerId, 
+                id: touches[i].identifier,
+                // Используем относительные координаты
                 x: relativeX, 
                 y: relativeY,
             });
@@ -117,45 +88,90 @@ function FingerPlacementArea({
         setTouchPoints(points);
     }
 
-    // Добавляем слушатели событий
-    touchArea.addEventListener('touchstart', handleTouchStart, { passive: false });
-    touchArea.addEventListener('touchend', handleTouchEnd, { passive: false });
-    touchArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+    // Добавляем новые пропсы: players, highlightedPlayerIndex, selectedPlayerIndex, isSelecting
+    // Отключаем обработчики касаний, если идет выбор или игрок выбран (статус не 'waiting')
+    const isDisabled = isSelecting || selectedPlayerIndex !== null;
 
-    // Очистка 
+    if (!isDisabled) {
+        touchArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+        touchArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+        touchArea.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+    } else {
+        // Если отключено, убедимся, что слушатели удалены, если они были добавлены ранее
+        touchArea.removeEventListener('touchstart', handleTouchStart);
+        touchArea.removeEventListener('touchend', handleTouchEnd);
+        touchArea.removeEventListener('touchcancel', handleTouchCancel);
+    }
+
+    // Очистка слушателей при размонтировании компонента ИЛИ при изменении isDisabled
     return () => {
-      touchArea.removeEventListener('touchstart', handleTouchStart);
-      touchArea.removeEventListener('touchend', handleTouchEnd);
-      touchArea.removeEventListener('touchcancel', handleTouchCancel);
+      if (readyTimeoutRef.current) {
+          clearTimeout(readyTimeoutRef.current);
+      }
     };
-  // Зависимости обновлены
-  }, [expectedPlayers, onReadyToStart, isAnimating, onFingerRemoved, touchPoints]); 
+  }, [expectedPlayers, onReadyToStart, isSelecting, selectedPlayerIndex]); // Добавляем зависимости
+
+  // Определяем текст подсказки в зависимости от стадии
+  let explanationText = "Положите пальцы, чтобы начать!";
+  if (isReady) {
+      explanationText = "Держите! Старт через секунду...";
+  } else if (isSelecting) {
+      explanationText = "Выбираем...";
+  } else if (selectedPlayerIndex !== null) {
+      explanationText = `Выбран игрок #${players[selectedPlayerIndex]?.fingerId}! Ожидание задания...`;
+  }
 
   return (
-    // Убираем класс ready, он больше не управляется здесь
-    <div ref={areaRef} className={`touch-area ${isAnimating ? 'animating' : ''}`}>
+    <div ref={areaRef} className={`touch-area ${isReady ? 'ready' : ''} ${isSelecting ? 'selecting' : ''} ${selectedPlayerIndex !== null ? 'selected' : ''}`}>
       <p className="touch-info">
-        {/* Обновляем текст в зависимости от состояния */} 
-        {isAnimating 
-          ? `Выбираем... (${touchPoints.length})` 
-          : `Положите пальцы: ${touchPoints.length} / ${expectedPlayers}`}
+        {/* Показываем разный текст в зависимости от стадии */} 
+        {isSelecting || selectedPlayerIndex !== null 
+          ? `Игроков: ${players.length}`
+          : `Положите пальцы: ${activeTouches} / ${expectedPlayers}`}
       </p>
-      {/* Убираем пояснение про колесо */}
+      {/* Добавляем пояснение */} 
       <p className="touch-explanation">
-        {isAnimating ? 'Не убирайте пальцы!' : 'Держите пальцы до начала выбора.'}
+          {explanationText}
       </p>
       
-      {/* Визуализация точек касания (теперь с fingerId и подсветкой) */} 
-      {touchPoints.map(point => (
-          <div 
-            key={point.id} // Используем touch identifier как key
-            className={`touch-point ${point.fingerId === highlightedFingerId ? 'highlighted' : ''}`}
-            style={{ left: `${point.x}px`, top: `${point.y}px` }}
-          >
-            {/* Отображаем fingerId внутри круга */} 
-            <span className="touch-point-id">#{point.fingerId}</span> 
-          </div>
-      ))}
+      {/* Визуализация точек касания/кружков игроков */} 
+      {/* Если есть игроки (статус selecting или task_assigned), показываем их */} 
+      {players.length > 0 ? (
+        players.map((player, index) => {
+          // Пытаемся найти соответствующую точку касания по fingerId (если они совпадают с id)
+          // TODO: Убедиться, что fingerId совпадает с touch identifier или нужен другой маппинг
+          // Пока используем заглушки для позиций, если нет касаний (например, после выбора)
+          const touchPoint = touchPoints.find(p => p.id === player.fingerId); 
+          const positionStyle = touchPoint 
+            ? { left: `${touchPoint.x}px`, top: `${touchPoint.y}px` } 
+            : { left: `${(index * 100) + 50}px`, top: '50%'}; // Примерная позиция, если касания нет
+
+          const isHighlighted = index === highlightedPlayerIndex;
+          const isSelected = index === selectedPlayerIndex;
+          const playerClass = `touch-point player-${index} ${isHighlighted ? 'highlighted' : ''} ${isSelected ? 'selected' : ''}`;
+          
+          return (
+              <div 
+                key={player.fingerId} // Используем fingerId как ключ
+                className={playerClass} 
+                style={positionStyle}
+              >
+                 {/* Можно добавить #fingerId внутрь кружка */} 
+                 <span className="player-id-text">#{player.fingerId}</span>
+              </div>
+          );
+        })
+      ) : ( 
+        // Иначе (статус waiting) показываем просто точки касания как раньше
+        touchPoints.map(point => (
+            <div 
+              key={point.id}
+              className="touch-point"
+              style={{ left: `${point.x}px`, top: `${point.y}px` }}
+            />
+        ))
+      )}
+      
     </div>
   );
 }
