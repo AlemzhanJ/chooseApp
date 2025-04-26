@@ -1,0 +1,43 @@
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  text-align: center;
+  background-color: #e8f4f8; /* Другой фон для игрового экрана */
+}
+
+.status-message {
+  font-size: 1.2em;
+  color: #555;
+}
+
+.error-message {
+  color: #d9534f; /* Красный для ошибок */
+  font-weight: bold;
+  margin-top: 15px;
+  background-color: #fdd;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+/* Стили для кнопок внутри игрового экрана (можно улучшить) */
+.game-container button {
+   padding: 10px 20px;
+   font-size: 1em;
+   margin: 10px;
+   cursor: pointer;
+   border: none;
+   border-radius: 5px;
+   background-color: #007bff;
+   color: white;
+   transition: background-color 0.2s;
+}
+
+.game-container button:hover {
+    background-color: #0056b3;
+}
+
+/* Дополнительные стили для разных стадий игры будут добавляться по мере необходимости */ 

@@ -1,0 +1,35 @@
+.winner-display-container {
+  background-color: #f0f0f0;
+  padding: 40px;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+}
+
+.trophy {
+  font-size: 4em;
+  margin-bottom: 20px;
+  animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-10px); }
+}
+
+.winner-display-container h2 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.winner-text {
+  font-size: 1.4em;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+.winner-id {
+  font-weight: bold;
+  color: #2a8a2e; /* Зеленый */
+} 

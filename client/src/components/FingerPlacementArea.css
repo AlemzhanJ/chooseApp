@@ -1,0 +1,65 @@
+.touch-area {
+  width: 90vw; /* Ширина почти на весь экран */
+  height: 70vh; /* Высота */
+  margin-top: 20px;
+  background-color: #d4e6f1; /* Светло-голубой фон */
+  border: 2px dashed #aed6f1; /* Пунктирная граница */
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column; /* Чтобы текст был сверху */
+  align-items: center;
+  justify-content: center; /* Центрируем текст, если область пустая */
+  position: relative; /* Для позиционирования точек касания */
+  overflow: hidden; /* Чтобы точки не выходили за пределы */
+  cursor: pointer; /* Указываем, что область интерактивна */
+  user-select: none; /* Запрещаем выделение текста */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE/Edge */
+  touch-action: none; /* Запрещаем стандартные действия браузера при касании */
+}
+
+.touch-info {
+  position: absolute; /* Позиционируем текст */
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.4em;
+  color: #1a5276;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 5px 15px;
+  border-radius: 10px;
+  z-index: 10;
+}
+
+.touch-point {
+    position: absolute;
+    width: 50px; /* Размер точки касания */
+    height: 50px;
+    background-color: rgba(46, 134, 193, 0.6); /* Полупрозрачный синий */
+    border-radius: 50%; /* Круглая форма */
+    transform: translate(-50%, -50%); /* Центрируем точку относительно координат касания */
+    pointer-events: none; /* Чтобы точки не мешали другим касаниям */
+    z-index: 5;
+}
+
+/* Можно добавить стили для состояния готовности */
+.touch-area.ready {
+    border-color: #2ecc71; /* Зеленая граница */
+    background-color: #d1f2eb;
+}
+
+/* Поясняющий текст */
+.touch-explanation {
+  position: absolute;
+  bottom: 20px; /* Теперь можно разместить текст ниже */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.9em;
+  color: #333;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 4px 8px;
+  border-radius: 5px;
+  max-width: 80%;
+  z-index: 10;
+} 

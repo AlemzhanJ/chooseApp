@@ -1,0 +1,90 @@
+.task-display-container {
+  background-color: #fff;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  max-width: 600px;
+  margin: 20px;
+}
+
+.task-display-container.error {
+    background-color: #fdd; /* Красный фон для ошибки */
+}
+
+.task-display-container h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.task-difficulty {
+  font-size: 0.9em;
+  color: #888;
+  margin-bottom: 20px;
+  text-transform: capitalize;
+}
+
+.task-text {
+  font-size: 1.5em; /* Крупный текст задания */
+  color: #2c3e50;
+  margin-bottom: 30px;
+  line-height: 1.4;
+}
+
+.task-actions {
+  margin-top: 20px;
+  border-top: 1px solid #eee;
+  padding-top: 25px;
+}
+
+.task-actions p {
+    margin-bottom: 15px;
+    font-size: 1.1em;
+}
+
+.action-button {
+  padding: 12px 25px;
+  font-size: 1.1em;
+  margin: 0 10px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.action-button.complete {
+  background-color: #5cb85c; /* Зеленый */
+}
+.action-button.complete:hover {
+  background-color: #4cae4c;
+}
+
+.action-button.eliminate {
+  background-color: #d9534f; /* Красный */
+}
+.action-button.eliminate:hover {
+  background-color: #c9302c;
+}
+
+.action-button:active {
+    transform: scale(0.98);
+}
+
+/* Стилизация для AI Заданий */
+.task-display-container.ai-task {
+  border: 2px solid #b1afff; /* Фиолетовая рамка для AI */
+}
+
+.ai-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #b1afff;
+  color: white;
+  padding: 3px 8px;
+  font-size: 0.8em;
+  border-radius: 10px;
+  font-weight: bold;
+} 

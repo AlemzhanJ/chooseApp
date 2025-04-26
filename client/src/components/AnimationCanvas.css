@@ -1,0 +1,61 @@
+.animation-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  min-height: 400px; /* Увеличим высоту */
+  overflow: hidden; /* Скроем части колеса, выходящие за границу */
+}
+
+.wheel-wrapper {
+  position: relative;
+  width: 300px; /* Размер обертки */
+  height: 300px;
+  margin-bottom: 30px;
+}
+
+.arrow {
+  position: absolute;
+  top: -10px; /* Позиционируем стрелку над колесом */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2em;
+  color: #333;
+  z-index: 10;
+}
+
+.wheel {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 5px solid #ccc;
+  position: relative;
+  overflow: hidden;
+  /* Transition будет устанавливаться через JavaScript */
+  /* transform будет устанавливаться через JavaScript */
+}
+
+/* Стили для меток игроков */
+.player-label {
+  position: absolute;
+  /* left и top устанавливаются через inline-стили */
+  transform: translate(-50%, -50%); /* Центрируем */
+  text-align: center;
+  color: rgba(0, 0, 0, 0.8); /* Чуть темнее текст */
+  font-weight: bold;
+  font-size: 1.2em; /* Еще чуть крупнее */
+  z-index: 5;
+  padding: 3px 6px;
+  background-color: rgba(255, 255, 255, 0.6); /* Чуть менее прозрачный фон */
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.animation-container h2 {
+  margin-bottom: 15px;
+  color: #333;
+}
+
+/* Убираем старый блок .player-ids */
+/* .player-ids { ... } */ 
