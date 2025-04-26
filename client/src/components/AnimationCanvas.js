@@ -9,7 +9,6 @@ const wheelColors = ['#5DADE2', '#F5B041', '#58D68D', '#EC7063', '#AF7AC5', '#F4
 function AnimationCanvas({ players, onSelectionTrigger }) {
   const [isSpinning, setIsSpinning] = useState(false);
   const wheelRef = useRef(null);
-  const [finalRotation, setFinalRotation] = useState(0); // Сохраним конечное положение
 
   const numPlayers = players.length;
   const segmentAngle = 360 / numPlayers;
@@ -26,8 +25,6 @@ function AnimationCanvas({ players, onSelectionTrigger }) {
     const targetRotation = randomSpins * 360 + randomAngleWithin360;
     const spinDuration = Math.random() * 2000 + 4000;
 
-    setFinalRotation(targetRotation);
-    
     // 1. Сбрасываем transition и устанавливаем начальное положение (0 градусов)
     wheelElement.style.transition = 'none';
     wheelElement.style.transform = 'rotate(0deg)'; // Или можно использовать previous finalRotation? Пока 0.
