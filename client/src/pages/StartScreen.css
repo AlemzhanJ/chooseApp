@@ -6,39 +6,43 @@
   min-height: 100vh;
   text-align: center;
   padding: 20px;
-  background-color: #f0f0f0; /* Пример фона */
+  /* Используем основной цвет фона из index.css */
+  /* background-color: #f0f0f0; */ /* Убираем старый фон */
+  /* Можно добавить градиент или фоновое изображение для "мультяшности" */
+  background: linear-gradient(135deg, #EBF5FB 0%, #FBFCFC 100%); /* Легкий градиент */
+  box-sizing: border-box; /* Учитываем padding */
+}
+
+.start-screen-container h1 {
+    color: #34495E; /* Основной цвет текста */
+    font-size: 2.8em; /* Увеличим заголовок */
+    margin-bottom: 15px;
+    /* Добавим легкую тень тексту */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.start-screen-container p {
+    color: #5DADE2; /* Голубой цвет для подзаголовка */
+    font-size: 1.3em;
+    max-width: 400px; /* Ограничим ширину */
+    line-height: 1.5;
+    margin-bottom: 40px;
 }
 
 .start-buttons {
-  margin-top: 30px;
+  margin-top: 20px;
   display: flex;
-  gap: 20px; /* Пространство между кнопками */
+  flex-direction: column; /* Кнопки друг под другом на мобильных */
+  gap: 15px; 
 }
 
-.start-button,
-.settings-button {
-  padding: 15px 30px;
-  font-size: 1.2em;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
+/* Стили для кнопок теперь берутся из Button.css */
+/* Удаляем старые стили .start-button, .settings-button */
 
-.start-button {
-  background-color: #4CAF50; /* Зеленый */
-  color: white;
-}
-
-.start-button:hover {
-  background-color: #45a049;
-}
-
-.settings-button {
-  background-color: #008CBA; /* Синий */
-  color: white;
-}
-
-.settings-button:hover {
-  background-color: #007ba7;
+/* Добавляем медиа-запрос для больших экранов, чтобы кнопки были в ряд */
+@media (min-width: 600px) {
+    .start-buttons {
+        flex-direction: row; /* Возвращаем кнопки в ряд */
+        gap: 25px;
+    }
 } 

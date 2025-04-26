@@ -86,25 +86,27 @@ function TaskDisplay({ task, selectedPlayerFingerId, onAction, eliminationEnable
       
       <div className="task-actions">
           <p>Выполнил задание?</p>
-          {/* Делаем кнопки неактивными, если время вышло (на всякий случай) */} 
-          <Button 
-            onClick={() => onAction('complete_task')}
-            variant="success" 
-            className="action-button complete"
-            disabled={timeLeft === 0}
-          >
-              Да! (Продолжить)
-          </Button>
-          {eliminationEnabled && (
+          {/* Оборачиваем кнопки в контейнер */}
+          <div className="btn-container"> 
               <Button 
-                onClick={() => onAction('eliminate')}
-                variant="danger" 
-                className="action-button eliminate"
+                onClick={() => onAction('complete_task')}
+                variant="success" 
+                className="action-button complete"
                 disabled={timeLeft === 0}
               >
-                  Нет! (Выбыть)
+                  Да! (Продолжить)
               </Button>
-          )}
+              {eliminationEnabled && (
+                  <Button 
+                    onClick={() => onAction('eliminate')}
+                    variant="danger" 
+                    className="action-button eliminate"
+                    disabled={timeLeft === 0}
+                  >
+                      Нет! (Выбыть)
+                  </Button>
+              )}
+          </div>
       </div>
     </div>
   );

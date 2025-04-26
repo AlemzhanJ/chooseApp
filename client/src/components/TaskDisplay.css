@@ -1,102 +1,112 @@
 .task-display-container {
-  background-color: #fff;
-  padding: 30px 40px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  background-color: #FFFFFF; /* Белый фон */
+  padding: 30px 40px; 
+  border-radius: 20px; /* Скругляем */
+  /* Мягкая тень */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 5px 10px rgba(0, 0, 0, 0.04);
   text-align: center;
   max-width: 600px;
   margin: 20px;
+  width: 90%; /* Занимаем большую часть ширины */
+  position: relative; /* Для позиционирования ai-badge */
 }
 
 .task-display-container.error {
-    background-color: #fdd; /* Красный фон для ошибки */
+    /* Используем красный из палитры */
+    background-color: #FADBD8; /* Светло-красный */
+    box-shadow: 0 10px 25px rgba(236, 112, 99, 0.1), 0 5px 10px rgba(236, 112, 99, 0.05); /* Красная тень */
+}
+
+.task-display-container.error h2 {
+    color: #EC7063; /* Красный */
+}
+
+.task-display-container.error p {
+    color: #A93226; /* Темно-красный */
 }
 
 .task-display-container h2 {
   margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
+  margin-bottom: 10px;
+  color: #5DADE2; /* Голубой заголовок */
+  font-size: 1.8em;
 }
 
 .task-difficulty {
   font-size: 0.9em;
-  color: #888;
+  color: #AEB6BF; /* Серый */
   margin-bottom: 20px;
   text-transform: capitalize;
+  font-weight: 700;
+  background-color: #F4F6F7;
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
 }
 
 .task-text {
-  font-size: 1.5em; /* Крупный текст задания */
-  color: #2c3e50;
+  font-size: 1.4em; /* Сделаем чуть меньше */
+  color: #34495E; /* Темно-серый текст */
   margin-bottom: 30px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .task-actions {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 25px;
+  margin-top: 30px;
+  border-top: 1px solid #EBF5FB; /* Очень светлая линия */
+  padding-top: 30px;
 }
 
 .task-actions p {
-    margin-bottom: 15px;
-    font-size: 1.1em;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    font-weight: 700;
+    color: #85929E; /* Сероватый */
 }
 
-.action-button {
-  padding: 12px 25px;
-  font-size: 1.1em;
-  margin: 0 10px;
-  cursor: pointer;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-}
+/* Стили для кнопок берутся из Button.css, убираем .action-button */
+/* .action-button { ... } */
+/* .action-button.complete { ... } */
+/* .action-button.eliminate { ... } */
+/* .action-button:active { ... } */
 
-.action-button.complete {
-  background-color: #5cb85c; /* Зеленый */
-}
-.action-button.complete:hover {
-  background-color: #4cae4c;
-}
-
-.action-button.eliminate {
-  background-color: #d9534f; /* Красный */
-}
-.action-button.eliminate:hover {
-  background-color: #c9302c;
-}
-
-.action-button:active {
-    transform: scale(0.98);
+/* Контейнер для кнопок действий */
+.task-actions .btn-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px; /* Расстояние между кнопками Да/Нет */
+    flex-wrap: wrap; /* Перенос на мобильных */
 }
 
 /* Стилизация для AI Заданий */
 .task-display-container.ai-task {
-  border: 2px solid #b1afff; /* Фиолетовая рамка для AI */
+  /* Можно добавить рамку или другой фон */
+  /* border: 3px solid #F5B041; */ /* Оранжевая рамка */
 }
 
 .ai-badge {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background-color: #b1afff;
+  top: 15px;
+  right: 15px;
+  background-color: #F5B041; /* Оранжевый */
   color: white;
-  padding: 3px 8px;
-  font-size: 0.8em;
-  border-radius: 10px;
-  font-weight: bold;
+  padding: 4px 12px;
+  font-size: 0.85em;
+  border-radius: 15px;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Стили для таймера */
 .timer-container {
   position: relative;
-  height: 30px;
-  background-color: #e9ecef; /* Светлый фон для контейнера */
-  border-radius: 15px; /* Скругленные углы */
-  margin: 25px 0; /* Отступы сверху и снизу */
-  overflow: hidden; /* Скрыть выходящий за пределы бар */
+  height: 35px; /* Немного выше */
+  background-color: #EBF5FB; /* Светло-голубой фон */
+  border-radius: 20px; 
+  margin: 30px auto; /* Отступы и центрирование */
+  overflow: hidden; 
+  max-width: 80%; /* Ограничим ширину */
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .timer-bar {
@@ -104,12 +114,12 @@
   top: 0;
   left: 0;
   height: 100%;
-  background-color: #ffc107; /* Желтый цвет таймера */
-  border-radius: 15px;
-  transition: width 0.5s linear; /* Плавное изменение ширины */
-  /* Добавляем градиент для красоты */
-  background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
-  background-size: 1rem 1rem;
+  background-color: #F5B041; /* Оранжевый цвет таймера */
+  border-radius: 20px;
+  transition: width 0.5s linear; 
+  /* Убираем градиент, делаем цвет ярче */
+  /* background-image: linear-gradient(...); */
+  /* background-size: 1rem 1rem; */
 }
 
 .timer-text {
@@ -117,9 +127,9 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #343a40; /* Темный цвет текста */
-  font-weight: bold;
-  font-size: 0.9em;
+  color: #34495E; /* Темно-серый текст */
+  font-weight: 700;
+  font-size: 1em;
   white-space: nowrap;
-  z-index: 2; /* Поверх бара */
+  z-index: 2; 
 } 

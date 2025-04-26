@@ -1,100 +1,85 @@
 .btn {
-  padding: 10px 20px;
-  font-size: 1em;
+  padding: 12px 28px;
+  font-size: 1.1em;
+  font-weight: 700;
+  font-family: 'Nunito', sans-serif;
   border: none;
-  border-radius: 6px;
+  border-radius: 30px;
   cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-  margin: 5px; /* Небольшой внешний отступ по умолчанию */
-  display: inline-flex; /* Для выравнивания */
+  transition: background-color 0.2s ease-out, transform 0.15s ease-out, box-shadow 0.2s ease-out;
+  margin: 8px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none; /* Убираем подчеркивание, если используется как ссылка */
-  color: white; /* По умолчанию белый текст */
+  text-decoration: none;
+  color: #FFFFFF;
+  box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+  outline: none;
 }
 
 .btn:disabled {
-  background-color: #cccccc;
-  color: #666666;
+  background-color: #D5DBDB;
+  color: #AEB6BF;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
+}
+
+.btn:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
 }
 
 .btn:not(:disabled):active {
-    transform: scale(0.98);
+    transform: translateY(1px);
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 /* Варианты */
 .btn-primary {
-  background-color: #007bff; /* Синий */
-  color: white;
+  background-color: #5DADE2;
 }
 .btn-primary:not(:disabled):hover {
-  background-color: #0056b3;
+  background-color: #3498DB;
 }
 
 .btn-secondary {
-  background-color: #6c757d; /* Серый */
-  color: white;
+  background-color: #AEB6BF;
 }
 .btn-secondary:not(:disabled):hover {
-  background-color: #5a6268;
+  background-color: #85929E;
 }
 
 .btn-success {
-  background-color: #28a745; /* Зеленый */
-  color: white;
+  background-color: #58D68D;
 }
 .btn-success:not(:disabled):hover {
-    background-color: #218838;
+    background-color: #2ECC71;
 }
 
 .btn-danger {
-  background-color: #dc3545; /* Красный */
-  color: white;
+  background-color: #EC7063;
 }
 .btn-danger:not(:disabled):hover {
-  background-color: #c82333;
+  background-color: #E74C3C;
 }
 
 .btn-warning {
-    background-color: #ffc107; /* Желтый */
-    color: #212529;
+    background-color: #F5B041;
+    color: #FFFFFF;
 }
 .btn-warning:not(:disabled):hover {
-    background-color: #e0a800;
+    background-color: #F39C12;
 }
 
-/* Можно добавить другие варианты: info, light, dark, link */
-
-.btn-info {
-  background-color: #17a2b8; /* Синий */
-  color: white;
-}
-.btn-info:not(:disabled):hover {
-  background-color: #138496;
+/* Убираем остальные стандартные варианты (info, light, dark, link) или стилизуем их */
+.btn-info, .btn-light, .btn-dark, .btn-link {
+    display: none;
 }
 
-.btn-light {
-  background-color: #f8f9fa; /* Серый */
-  color: #212529;
-}
-.btn-light:not(:disabled):hover {
-  background-color: #e2e6ea;
-}
-
-.btn-dark {
-  background-color: #343a40; /* Черный */
-  color: white;
-}
-.btn-dark:not(:disabled):hover {
-  background-color: #1d2124;
-}
-
-.btn-link {
-  color: #007bff; /* Синий */
-  text-decoration: underline;
-}
-.btn-link:not(:disabled):hover {
-  text-decoration: none;
+/* Можно добавить специфичные стили для кнопок в определенных контекстах */
+/* Например, кнопка старта игры может быть больше */
+.start-game-button {
+    padding: 15px 40px;
+    font-size: 1.3em;
 } 

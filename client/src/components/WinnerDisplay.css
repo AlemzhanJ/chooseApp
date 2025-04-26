@@ -1,35 +1,52 @@
 .winner-display-container {
-  background-color: #f0f0f0;
-  padding: 40px;
-  border-radius: 15px;
+  background-color: #FFFFFF; /* Белый фон */
+  padding: 40px 50px;
+  border-radius: 25px; /* Скругляем */
   text-align: center;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  /* Тень как у карточек */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 5px 10px rgba(0, 0, 0, 0.04);
   margin: 20px;
+  width: 90%;
+  max-width: 500px;
 }
 
 .trophy {
-  font-size: 4em;
+  font-size: 5em; /* Увеличим трофей */
   margin-bottom: 20px;
-  animation: bounce 1s infinite alternate;
+  animation: bounce 1.5s infinite alternate ease-in-out; /* Изменим анимацию */
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Улучшенная анимация подпрыгивания */
 @keyframes bounce {
-  from { transform: translateY(0); }
-  to { transform: translateY(-10px); }
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-15px) scale(1.05); }
 }
 
 .winner-display-container h2 {
-  color: #333;
-  margin-bottom: 10px;
+  color: #58D68D; /* Зеленый заголовок */
+  margin-bottom: 15px;
+  font-size: 2.2em;
 }
 
 .winner-text {
-  font-size: 1.4em;
-  color: #555;
+  font-size: 1.3em;
+  color: #34495E; /* Темно-серый */
   margin-bottom: 20px;
+  line-height: 1.5;
 }
 
 .winner-id {
-  font-weight: bold;
-  color: #2a8a2e; /* Зеленый */
+  font-weight: 700;
+  color: #F5B041; /* Оранжевый */
+  background-color: #FEF9E7; /* Очень светло-оранжевый фон */
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+/* Стиль для подписей режимов */
+.winner-display-container p:last-of-type {
+    color: #85929E; /* Серый */
+    font-size: 1em;
+    margin-top: 25px;
 } 
