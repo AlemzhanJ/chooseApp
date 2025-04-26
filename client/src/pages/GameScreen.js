@@ -410,8 +410,8 @@ function GameScreen() {
     return <div className="game-container status-message">Нет данных об игре.</div>;
   }
 
-  // --- ОБРАБОТЧИК ГОТОВНОСТИ К ВЫБОРУ ---
-  const handleReadyToSelect = async (fingers) => {
+  // --- ОБРАБОТЧИК ГОТОВНОСТИ К ВЫБОРУ (обернут в useCallback) ---
+  const handleReadyToSelect = useCallback(async (fingers) => {
       console.log("GameScreen: handleReadyToSelect called with fingers:", fingers);
       if (!fingers || fingers.length === 0) {
           console.error("GameScreen: Received empty fingers data!");
@@ -441,7 +441,8 @@ function GameScreen() {
       } finally {
            setLoading(false); // Убираем лоадер
       }
-  };
+  }, [gameId]); // Добавляем зависимость gameId
+  // --------------------------------------
 
   // --- Рендеринг контента ---
   const renderGameContent = () => {
