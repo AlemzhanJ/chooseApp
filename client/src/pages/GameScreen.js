@@ -63,11 +63,64 @@ function GameScreen() {
     fetchGameData();
   }, [fetchGameData]); 
 
+  // --- Обработчик действия игрока --- 
+  // Переносим сюда, чтобы он был определен до использования в useEffect таймера
+  const handlePlayerAction = useCallback(async (action) => { 
+    const playerFingerId = feedbackMessage?.type === 'task' 
+                           ? feedbackMessage.playerFingerId 
+                           : gameData?.winnerFingerId;
+                           
+    if (!gameData || !playerFingerId) return;
+    
+    const currentFeedback = feedbackMessage;
+    setFeedbackMessage(null); 
+    if (timerRef.current) {
+       clearInterval(timerRef.current);
+       timerRef.current = null;
+    }
+    setTimeLeft(null);
+    
+    setLoading(true);
+    setError(null);
+    if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = null;
+    }
+
+    try {
+        const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
+        setGameData(updatedGame);
+        
+        if (action === 'eliminate' || (action === 'complete_task' && currentFeedback?.type === 'task')) {
+            const message = action === 'eliminate'
+                ? `Игрок #${playerFingerId} выбывает!`
+                : `Игрок #${playerFingerId} отметил выполнение.`; 
+            setFeedbackMessage(message);
+            feedbackTimeoutRef.current = setTimeout(() => {
+                setFeedbackMessage(null);
+                feedbackTimeoutRef.current = null;
+                fetchGameData(false); 
+            }, 2000); 
+        } else {
+           fetchGameData(false); 
+        }
+        
+    } catch (err) {
+        console.error("Error updating player status:", err);
+        const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
+        setError(errorMsg);
+        setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); 
+    } finally {
+        setLoading(false); 
+    }
+  }, [gameId, fetchGameData, gameData, feedbackMessage]);
+  // --- Конец переноса handlePlayerAction --- 
+
   useEffect(() => {
       return () => {
           if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-          if (animationIntervalRef.current) clearTimeout(animationIntervalRef.current); // Очищаем интервал
-          if (timerRef.current) clearInterval(timerRef.current); // <-- Очистка таймера задания
+          if (animationIntervalRef.current) clearTimeout(animationIntervalRef.current); 
+          if (timerRef.current) clearInterval(timerRef.current); 
       };
   }, []);
 
@@ -268,64 +321,6 @@ function GameScreen() {
     }
   };
   
-    // Обработчик действия игрока (выполнить/провалить/выбыть)
-    const handlePlayerAction = useCallback(async (action) => {
-      // Получаем ID игрока из feedbackMessage, если это задание, иначе из gameData
-      const playerFingerId = feedbackMessage?.type === 'task' 
-                             ? feedbackMessage.playerFingerId 
-                             : gameData?.winnerFingerId;
-                             
-      if (!gameData || !playerFingerId) return;
-      
-      // Сбрасываем текущее сообщение/задание
-      const currentFeedback = feedbackMessage;
-      setFeedbackMessage(null); 
-      // Останавливаем таймер немедленно
-      if (timerRef.current) {
-         clearInterval(timerRef.current);
-         timerRef.current = null;
-      }
-      setTimeLeft(null);
-      
-      setLoading(true);
-      setError(null);
-      // setCurrentDisplayTask(null); // Удаляем
-      if (feedbackTimeoutRef.current) {
-          clearTimeout(feedbackTimeoutRef.current);
-          feedbackTimeoutRef.current = null;
-      }
-
-      try {
-          const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
-          setGameData(updatedGame);
-          
-          if (action === 'eliminate' || (action === 'complete_task' && currentFeedback?.type === 'task')) {
-              const message = action === 'eliminate'
-                  ? `Игрок #${playerFingerId} выбывает!`
-                  : `Игрок #${playerFingerId} отметил выполнение.`; // Новое сообщение
-              setFeedbackMessage(message);
-              feedbackTimeoutRef.current = setTimeout(() => {
-                  setFeedbackMessage(null);
-                  feedbackTimeoutRef.current = null;
-                  // После сообщения, снова запрашиваем данные для следующего раунда/состояния
-                  fetchGameData(false); 
-              }, 2000); // Уменьшил время показа сообщения
-          } else {
-             // Если действие не требует сообщения, просто обновляем данные
-             fetchGameData(false); 
-          }
-          
-      } catch (err) {
-          console.error("Error updating player status:", err);
-          const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
-          setError(errorMsg);
-          setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); // Показываем ошибку
-      } finally {
-          setLoading(false); 
-      }
-  // Добавляем gameData и feedbackMessage в зависимости useCallback
-  }, [gameId, fetchGameData, gameData, feedbackMessage]); 
-
   // --- Рендеринг контента ---
   const renderGameContent = () => {
       if (!gameData) return null; 
@@ -340,7 +335,7 @@ function GameScreen() {
       return (
           <>
               {/* 1. Показываем Задание (если есть) */} 
-              {showTask && (
+              {/* {showTask && (
                   <TaskDisplay 
                       task={currentDisplayTask} 
                       selectedPlayerFingerId={gameData.winnerFingerId}
@@ -348,7 +343,7 @@ function GameScreen() {
                       eliminationEnabled={gameData.eliminationEnabled}
                       taskTimeLimit={gameData.eliminationEnabled ? gameData.taskTimeLimit : null}
                   />
-              )}
+              )} */}
 
               {/* 2. Показываем Область пальцев (если нужно) */} 
               {showFingerArea && (
