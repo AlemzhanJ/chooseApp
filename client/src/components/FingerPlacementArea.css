@@ -64,6 +64,17 @@
     }
 }
 
+/* Стиль для подсвеченной точки во время анимации */
+.touch-point.highlighted {
+    background-color: rgba(241, 196, 15, 0.8); /* Ярко-желтый фон */
+    border-color: rgba(243, 156, 18, 1); /* Более насыщенная оранжевая рамка */
+    /* Яркая желтая тень для эффекта свечения */
+    box-shadow: 0 0 20px 10px rgba(241, 196, 15, 0.7); 
+    transform: translate(-50%, -50%) scale(1.1); /* Немного увеличиваем */
+    transition: transform 0.15s ease-out, background-color 0.15s ease-out, box-shadow 0.15s ease-out; /* Плавный переход */
+    z-index: 6; /* Поверх остальных точек */
+}
+
 /* Стиль для состояния готовности */
 .touch-area.ready {
     /* Делаем фон зеленым */
