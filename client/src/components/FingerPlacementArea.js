@@ -40,7 +40,14 @@ function FingerPlacementArea({
   }, [gameStatus]);
 
   // --- Вычисляем количество активных игроков, ожидаемых на экране --- 
-  const activePlayersExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? expectedPlayers;
+  let activePlayersExpectedCount;
+  if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
+    // Первый раунд, используем изначальное число игроков из настроек
+    activePlayersExpectedCount = expectedPlayers ?? 0;
+  } else {
+    // Последующие раунды или другие статусы, считаем активных из массива игроков
+    activePlayersExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
+  }
   // ----------------------------------------------------------------
 
   // --- Получение координат относительно области ---
@@ -271,7 +278,7 @@ function FingerPlacementArea({
       {!isSelecting && gameStatus === 'waiting' && (
         <div className="instructions">
             {activeTouches.length < expectedPlayers
-                ? `Положите пальцы (${activeTouches.length}/${activePlayersExpectedCount})`
+                ? `Положите пальцы (${activeTouches.length}/${activePlayersExpectedCount || '...'})`
                 : 'Все пальцы на месте!'
             }
             {/* Показываем таймер, если он активен */}
