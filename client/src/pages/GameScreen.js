@@ -103,6 +103,8 @@ function GameScreen() {
             const winnerIndex = Math.floor(Math.random() * placedFingers.length);
             const winnerFinger = placedFingers[winnerIndex];
             setHighlightedIndex(winnerIndex); 
+            // --- Добавляем визуальный индикатор --- 
+            setFeedbackMessage(`Выбран #${winnerFinger?.fingerId}. Вызов API...`);
             handlePerformSelection(winnerFinger.fingerId); 
         } else {
             // Запускаем следующий таймаут с текущим (возможно, измененным) интервалом
@@ -148,7 +150,9 @@ function GameScreen() {
 
   // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
   const handlePerformSelection = async (selectedFingerId) => {
-    setLoading(true); // Показываем лоадер пока идет запрос
+    // --- Добавляем визуальный индикатор --- 
+    setFeedbackMessage(`Внутри handlePerform(${selectedFingerId}). Загрузка...`);
+    setLoading(true); 
     setError(null);
     setCurrentDisplayTask(null); 
     try {
@@ -167,8 +171,12 @@ function GameScreen() {
 
     } catch (err) {
         console.error("Error performing selection:", err);
-        setError(err.message || 'Ошибка при выборе.');
-        setIsSelecting(false); // Сбрасываем анимацию в случае ошибки
+        const errorMsg = err.message || 'Ошибка при выборе.';
+        setError(errorMsg);
+        // --- Добавляем визуальный индикатор --- 
+        setFeedbackMessage(`Ошибка выбора: ${errorMsg}`);
+        // Сбрасываем анимацию в случае ошибки
+        setIsSelecting(false); 
         setHighlightedIndex(null);
     } finally {
         // Возвращаем fetchGameData для получения гарантированно свежего состояния
