@@ -67,7 +67,9 @@ function GameScreen() {
 
   // Логика анимации мерцания
   useEffect(() => {
-    if (!isSelecting || !placedFingers.length) {
+    console.log("GameScreen: Animation useEffect triggered. isSelecting:", isSelecting, "placedFingers:", placedFingers);
+    if (!isSelecting || !placedFingers || placedFingers.length === 0) { // Добавил проверку placedFingers
+      console.log("GameScreen: Animation useEffect cleanup or aborting. isSelecting:", isSelecting, "placedFingers length:", placedFingers?.length);
       if (animationIntervalRef.current) {
         clearTimeout(animationIntervalRef.current); // Используем clearTimeout для рекурсивного setTimeout
         animationIntervalRef.current = null;
@@ -135,10 +137,13 @@ function GameScreen() {
   
   // Обработчик готовности (когда все пальцы поставлены)
   const handleReadyToStart = (fingers) => {
-      console.log("All fingers placed:", fingers);
+      console.log("GameScreen: handleReadyToStart called with fingers:", fingers);
+      if (!fingers || fingers.length === 0) {
+          console.error("GameScreen: Received empty fingers data!");
+          return; // Не начинаем выбор, если нет данных
+      }
       setPlacedFingers(fingers); // Сохраняем информацию о пальцах
       setIsSelecting(true); // Запускаем анимацию выбора
-      // Не вызываем API здесь, API будет вызван после анимации
   };
 
   // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
@@ -166,11 +171,11 @@ function GameScreen() {
         setIsSelecting(false); // Сбрасываем анимацию в случае ошибки
         setHighlightedIndex(null);
     } finally {
-        // setLoading(false); // Лоадер сбросится при обновлении gameData в fetchGameData
-        // Вызовем fetchGameData без лоадера, чтобы обновить статус 
-        await fetchGameData(false); // Дожидаемся обновления данных
-        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обновления данных
-        // setHighlightedIndex(null); // Раскомментировать, если подсветка должна исчезнуть сразу
+        // Убираем лишний fetchGameData, полагаемся на данные из selectWinnerOrTaskPlayer
+        // await fetchGameData(false); 
+        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обработки ответа (в try)
+        setLoading(false); // Убираем лоадер здесь, т.к. fetchGameData убран
+        // setHighlightedIndex(null); // Оставляем подсветку победителя? Решим позже.
     }
   };
   
@@ -217,33 +222,19 @@ function GameScreen() {
 
   // --- Рендеринг контента ---
   const renderGameContent = () => {
-      if (!gameData) return null; // На всякий случай
+      if (!gameData) return null; 
 
-      // Состояния, когда отображается FingerPlacementArea
-      const showFingerArea = gameData.status === 'waiting' || isSelecting || gameData.status === 'selecting';
-      // Состояние, когда отображается результат выбора (задание или победитель)
-      const showSelectionResult = (gameData.status === 'task_assigned' || gameData.status === 'finished') && !isSelecting;
+      // Определяем, когда показывать область пальцев
+      const showFingerArea = gameData.status === 'waiting' || isSelecting || gameData.status === 'task_assigned';
+      // Определяем, когда показывать задание
+      const showTask = gameData.status === 'task_assigned' && !isSelecting;
+      // Определяем, когда показывать победителя
+      const showWinner = gameData.status === 'finished' && !isSelecting;
 
       return (
           <>
-              {showFingerArea && (
-                  <div>
-                      {/* Показываем заголовок в зависимости от состояния */}
-                      <h2>{isSelecting ? 'Выбираем...' : 'Ожидание игроков...'}</h2>
-                      <FingerPlacementArea 
-                          expectedPlayers={gameData.numPlayers}
-                          onReadyToStart={handleReadyToStart} 
-                          // Передаем доп. пропсы для анимации
-                          isSelecting={isSelecting} 
-                          highlightedIndex={highlightedIndex}
-                          placedFingersData={placedFingers} // Передаем данные о пальцах
-                          disabled={isSelecting || gameData.status !== 'waiting'} // Блокируем во время выбора
-                      />
-                  </div>
-              )}
-
-              {/* Показываем результат выбора ПОД областью пальцев */}
-              {showSelectionResult && gameData.status === 'task_assigned' && (
+              {/* 1. Показываем Задание (если есть) */} 
+              {showTask && (
                   <TaskDisplay 
                       task={currentDisplayTask} 
                       selectedPlayerFingerId={gameData.winnerFingerId}
@@ -253,8 +244,26 @@ function GameScreen() {
                   />
               )}
 
-              {showSelectionResult && gameData.status === 'finished' && (
-                 <div>
+              {/* 2. Показываем Область пальцев (если нужно) */} 
+              {showFingerArea && (
+                  <div className="finger-area-container"> {/* Добавим контейнер для возможного позиционирования */} 
+                      {/* Заголовок меняется */} 
+                      <h2>{isSelecting ? 'Выбираем...' : (gameData.status === 'task_assigned' ? `Задание для #${gameData.winnerFingerId}` : 'Ожидание игроков...')}</h2>
+                      <FingerPlacementArea 
+                          expectedPlayers={gameData.numPlayers}
+                          onReadyToStart={handleReadyToStart} 
+                          isSelecting={isSelecting} 
+                          highlightedIndex={highlightedIndex}
+                          placedFingersData={placedFingers} 
+                          // Блокируем, если идет выбор ИЛИ задание уже назначено
+                          disabled={isSelecting || gameData.status === 'task_assigned'} 
+                      />
+                  </div>
+              )}
+
+              {/* 3. Показываем Победителя (если игра закончена) */} 
+              {showWinner && (
+                 <div className="winner-container"> {/* Добавим контейнер */} 
                      <WinnerDisplay 
                         winnerFingerId={gameData.winnerFingerId} 
                         mode={gameData.mode} 
@@ -264,12 +273,6 @@ function GameScreen() {
                      </Button>
                  </div>
               )}
-
-              {/* Убираем старую логику рендеринга по статусам, так как все объединено */}
-              {/* {gameData.status === 'waiting' && ... } */}
-              {/* {gameData.status === 'selecting' && ... } -> заменено на isSelecting */}
-              {/* {gameData.status === 'task_assigned' && ... } -> теперь показывается вместе с finger area или после */}
-              {/* {gameData.status === 'finished' && ... } -> теперь показывается вместе с finger area или после */}
           </>
       );
   };
