@@ -74,19 +74,26 @@ function GameScreen() {
   // --- Обработчик действия игрока --- 
   // Переносим сюда, чтобы он был определен до использования в useEffect таймера
   const handlePlayerAction = useCallback(async (action) => { 
-    const playerFingerId = feedbackMessage?.type === 'task' 
-                           ? feedbackMessage.playerFingerId 
-                           : gameData?.winnerFingerId;
-                           
-    if (!gameData || !playerFingerId) return;
-    
-    const currentFeedback = feedbackMessage;
-    setFeedbackMessage(null); 
+    // --- Захватываем данные из feedbackMessage ДО изменения состояния ---
+    const currentFeedback = feedbackMessage; 
+    const isTaskAction = currentFeedback?.type === 'task';
+    const playerFingerId = isTaskAction ? currentFeedback.playerFingerId : undefined;
+    // -----------------------------------------------------------------
+
+    // --- Более строгая проверка перед выполнением --- 
+    if (!gameData || !isTaskAction || playerFingerId === undefined || playerFingerId === null) {
+        console.error("handlePlayerAction: Aborting. Invalid context. GameData:", gameData, "FeedbackMsg:", currentFeedback, "Action:", action);
+        return; // Прерываем выполнение, если контекст неверный
+    }
+    // --------------------------------------------------
+
+    // Используем захваченный playerFingerId и продолжаем...
+    setFeedbackMessage(null); // Сразу скрываем уведомление
     if (timerRef.current) {
        clearInterval(timerRef.current);
        timerRef.current = null;
     }
-    setTimeLeft(null);
+    setTimeLeft(null); // Сбрасываем таймер в состоянии
     
     setLoading(true);
     setError(null);
@@ -96,33 +103,36 @@ function GameScreen() {
     }
 
     try {
+        // Используем захваченный playerFingerId
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
         
-        if (action === 'eliminate' || (action === 'complete_task' && currentFeedback?.type === 'task')) {
+        // Упрощенная проверка для показа сообщения
+        if (action === 'eliminate' || action === 'complete_task') {
             const message = action === 'eliminate'
                 ? `Игрок #${playerFingerId} выбывает!`
                 : `Игрок #${playerFingerId} отметил выполнение.`; 
-            setFeedbackMessage(message);
-            feedbackTimeoutRef.current = setTimeout(async () => {
+            setFeedbackMessage(message); // Показываем временное подтверждение
+            feedbackTimeoutRef.current = setTimeout(async () => { 
                 setFeedbackMessage(null);
                 feedbackTimeoutRef.current = null;
                 try {
-                    await fetchGameData(false);
+                    await fetchGameData(false); // Запрашиваем финальное состояние
                 } catch (fetchErr) {
                     console.error("Error fetching game data after action:", fetchErr);
                     setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
                 }
-                setLoading(false);
+                setLoading(false); // Убираем лоадер ПОСЛЕ обновления
             }, 2000); 
         } else {
+           // Эта ветка маловероятна для действий с заданием
            try {
-               await fetchGameData(false);
+               await fetchGameData(false); 
            } catch (fetchErr) {
                console.error("Error fetching game data after action (no msg branch):", fetchErr);
                setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
            }
-           setLoading(false);
+           setLoading(false); // Убираем лоадер
         }
         
     } catch (err) {
@@ -130,9 +140,12 @@ function GameScreen() {
         const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
         setError(errorMsg);
         setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); 
-        setLoading(false); 
+        setLoading(false); // Убираем лоадер при ошибке
     }
-  }, [gameId, fetchGameData, gameData, feedbackMessage]);
+
+  // Убираем feedbackMessage и добавляем комментарий для линтера
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, fetchGameData, gameData]); 
   // --- Конец переноса handlePlayerAction --- 
 
   useEffect(() => {
