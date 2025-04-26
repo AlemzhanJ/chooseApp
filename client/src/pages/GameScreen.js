@@ -46,15 +46,6 @@ function GameScreen() {
          // Здесь можно подумать, нужно ли возобновлять анимацию
          // Пока просто отобразим, что идет выбор
       }
-      // Сбросим анимацию если статус сменился с selecting
-      if (data.status !== 'selecting' && isSelecting) {
-          setIsSelecting(false);
-          setHighlightedIndex(null);
-          if (animationIntervalRef.current) {
-              clearTimeout(animationIntervalRef.current);
-              animationIntervalRef.current = null;
-          }
-      }
     } catch (err) {
       console.error('Error fetching game data:', err);
       setError(err.message || 'Не удалось загрузить данные игры.');
@@ -176,8 +167,10 @@ function GameScreen() {
         setHighlightedIndex(null);
     } finally {
         // setLoading(false); // Лоадер сбросится при обновлении gameData в fetchGameData
-        // Вызовем fetchGameData без лоадера, чтобы обновить статус и сбросить isSelecting
-        fetchGameData(false); 
+        // Вызовем fetchGameData без лоадера, чтобы обновить статус 
+        await fetchGameData(false); // Дожидаемся обновления данных
+        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обновления данных
+        // setHighlightedIndex(null); // Раскомментировать, если подсветка должна исчезнуть сразу
     }
   };
   
