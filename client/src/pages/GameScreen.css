@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* Центрируем контент по вертикали и горизонтали */
+  justify-content: flex-start; /* Начинаем контент сверху */
   min-height: 100vh;
   padding: 20px;
   box-sizing: border-box;
@@ -151,7 +151,11 @@
 }
 
 .finger-area-container {
-    margin-top: 20px; /* Добавляем отступ сверху, если есть уведомление */
+    margin-top: 20px; /* Оставляем отступ */
+    width: 100%; /* Занимаем всю ширину */
+    display: flex; /* Используем flex для внутреннего элемента */
+    flex-direction: column;
+    flex-grow: 1; /* Заставляем этот контейнер растягиваться */
 }
 
 /* УДАЛЯЕМ СТИЛИ ДЛЯ ОВЕРЛЕЯ ЗАГРУЗКИ */
