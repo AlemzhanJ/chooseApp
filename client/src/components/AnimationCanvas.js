@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './AnimationCanvas.css'; // Добавим стили
 
 const colors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#F7C8E0', '#B1AFFF', '#FFACAC', '#A0C3D2'];
@@ -7,42 +7,41 @@ const colors = ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#F7C8E0', '#B1AFFF'
 // чтобы GameScreen сделал POST-запрос на /select
 function AnimationCanvas({ players, onSelectionTrigger }) {
   const [isSpinning, setIsSpinning] = useState(false);
-  // const wheelRef = useRef(null); // Реф пока не нужен для стилей
+  const wheelRef = useRef(null);
 
   const numPlayers = players.length;
   const segmentAngle = 360 / numPlayers;
   
   useEffect(() => {
-    // const wheelElement = wheelRef.current; // Пока не используем реф
+    // Сохраняем текущий элемент колеса в переменную
+    const wheelElement = wheelRef.current;
+
+    // Запускаем анимацию вращения сразу при монтировании
     setIsSpinning(true);
     console.log('Animation started for players:', players);
 
     const spinDuration = Math.random() * 3000 + 3000;
     
-    // --- Убираем установку стилей через JS --- 
-    /*
+    // Используем сохраненный элемент
     if (wheelElement) {
         wheelElement.style.transition = `transform ${spinDuration / 1000}s cubic-bezier(0.25, 0.1, 0.25, 1)`;
         wheelElement.style.transform = `rotate(${360 * 10 + Math.random() * 360}deg)`;
     }
-    */
 
-    // Оставляем только таймер для вызова onSelectionTrigger
     const animationTimeout = setTimeout(() => {
-      console.log('Animation finished visually (CSS keyframes), triggering backend selection.');
-      setIsSpinning(false);
+      console.log('Animation finished visually, triggering backend selection.');
+      setIsSpinning(false); 
       onSelectionTrigger();
     }, spinDuration);
 
+    // Очистка таймера и стилей при размонтировании
     return () => {
         clearTimeout(animationTimeout);
-        // Очистка стилей больше не нужна здесь
-        /*
+        // Используем сохраненный элемент в очистке
         if (wheelElement) {
              wheelElement.style.transition = '';
              wheelElement.style.transform = '';
         }
-        */
     };
 
   }, [players, onSelectionTrigger]);
@@ -54,8 +53,7 @@ function AnimationCanvas({ players, onSelectionTrigger }) {
     <div className="animation-container">
       <div className="wheel-wrapper">
         <div className="arrow">▼</div>
-        {/* Убираем реф */}
-        <div className="wheel" /* ref={wheelRef} */ style={{
+        <div className="wheel" ref={wheelRef} style={{
             background: `conic-gradient(${players.map((player, index) => 
                 `${colors[index % colors.length]} ${index * segmentAngle}deg ${(index + 1) * segmentAngle}deg`
             ).join(', ')})`,
@@ -82,7 +80,7 @@ function AnimationCanvas({ players, onSelectionTrigger }) {
           })}
         </div>
       </div>
-      <h2>{isSpinning ? 'Выбираем... (CSS Spin)' : 'Выбор сделан! Ждем результат...'}</h2>
+      <h2>{isSpinning ? 'Выбираем...' : 'Выбор сделан! Ждем результат...'}</h2>
       {/* Можно отобразить ID пальцев, участвующих в выборе */}
       {/* <div className="player-ids">
         Участники: {players.map(p => `#${p.fingerId}`).join(', ')}
