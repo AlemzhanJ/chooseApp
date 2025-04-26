@@ -171,10 +171,10 @@ function GameScreen() {
         setIsSelecting(false); // Сбрасываем анимацию в случае ошибки
         setHighlightedIndex(null);
     } finally {
-        // Убираем лишний fetchGameData, полагаемся на данные из selectWinnerOrTaskPlayer
-        // await fetchGameData(false); 
-        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обработки ответа (в try)
-        setLoading(false); // Убираем лоадер здесь, т.к. fetchGameData убран
+        // Возвращаем fetchGameData для получения гарантированно свежего состояния
+        await fetchGameData(false); 
+        setIsSelecting(false); // Сбрасываем флаг анимации ПОСЛЕ обновления данных
+        // setLoading(false); // Убираем, так как fetchGameData управляет лоадером
         // setHighlightedIndex(null); // Оставляем подсветку победителя? Решим позже.
     }
   };
@@ -231,21 +231,8 @@ function GameScreen() {
       // Определяем, когда показывать победителя
       const showWinner = gameData.status === 'finished' && !isSelecting;
 
-      // ----- ВРЕМЕННЫЙ ОТЛАДОЧНЫЙ БЛОК -----
-      const debugInfo = (
-          <div style={{ position: 'absolute', top: '5px', left: '5px', backgroundColor: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px', fontSize: '10px', zIndex: 100 }}>
-              <p>Status: {gameData.status}</p>
-              <p>isSelecting: {isSelecting.toString()}</p>
-              <p>Task Exists: {currentDisplayTask ? 'Yes' : 'No'}</p>
-              <p>Winner ID: {gameData.winnerFingerId ?? 'N/A'}</p>
-          </div>
-      );
-      // -------------------------------------
-
       return (
           <>
-              {debugInfo} {/* Добавляем отладочный блок */} 
-              
               {/* 1. Показываем Задание (если есть) */} 
               {showTask && (
                   <TaskDisplay 
