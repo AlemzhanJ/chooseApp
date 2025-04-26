@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   getGame,
   selectWinnerOrTaskPlayer,
-  updatePlayerStatus
+  updatePlayerStatus,
+  startGameSelection
 } from '../services/api';
 import './GameScreen.css'; // Добавим файл стилей позже
 
@@ -136,23 +137,44 @@ function GameScreen() {
   if (!gameData && !loading) { // Если не грузится и данных нет
     return <div className="game-container status-message">Нет данных об игре.</div>;
   }
-  
+
   // Обработчик готовности (когда все пальцы поставлены)
-  const handleReadyToStart = (fingers) => {
+  const handleReadyToStart = async (fingers) => {
       console.log("GameScreen: handleReadyToStart called with fingers:", fingers);
       if (!fingers || fingers.length === 0) {
           console.error("GameScreen: Received empty fingers data!");
-          return; // Не начинаем выбор, если нет данных
+          return; 
       }
-      setPlacedFingers(fingers); // Сохраняем информацию о пальцах
-      setIsSelecting(true); // Запускаем анимацию выбора
+      
+      setLoading(true); // Показываем лоадер пока идет запрос к бэкенду
+      setError(null);
+      try {
+          // --- Вызываем API для смены статуса на 'selecting' --- 
+          console.log("GameScreen: Calling startGameSelection API...");
+          const updatedGame = await startGameSelection(gameId, fingers);
+          console.log("GameScreen: startGameSelection API successful. New status:", updatedGame.status);
+          
+          // Сохраняем пальцы и запускаем анимацию ТОЛЬКО после успеха API
+          setGameData(updatedGame); // Обновляем gameData сразу
+          setPlacedFingers(updatedGame.players); // Используем данные из ответа API
+          setIsSelecting(true); 
+          
+      } catch (err) {
+          console.error("GameScreen: Error calling startGameSelection API:", err);
+          setError(err.message || 'Ошибка при старте фазы выбора.');
+          // Не запускаем анимацию в случае ошибки
+          setIsSelecting(false);
+          setPlacedFingers([]);
+      } finally {
+           setLoading(false); // Убираем лоадер
+      }
   };
 
   // Выполняем выбор победителя/задания на бэкенде ПОСЛЕ анимации
   const handlePerformSelection = async (selectedFingerId) => {
     // --- Убираем визуальный индикатор --- 
     // setFeedbackMessage(`Внутри handlePerform(${selectedFingerId}). Загрузка...`);
-    setLoading(true); 
+    setLoading(true);
     setError(null);
     setCurrentDisplayTask(null); 
     try {
@@ -298,7 +320,7 @@ function GameScreen() {
        {/* Показываем лоадер поверх, если loading=true и это не фоновое обновление */}
        {loading && <div className="loading-overlay">Загрузка...</div>}
 
-       {renderGameContent()}
+      {renderGameContent()}
     </div>
   );
 }
