@@ -98,8 +98,8 @@ export const addTask = async (taskData) => {
 // --- НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ --- 
 export const deleteGameAPI = async (gameId) => {
   try {
-    // Используем метод DELETE
-    await apiClient.delete(`/games/${gameId}`);
+    // Используем метод DELETE и правильный путь с /api
+    await apiClient.delete(`/api/games/${gameId}`);
     console.log(`Game ${gameId} deletion requested successfully.`);
     // Для DELETE обычно не ожидается тело ответа, кроме кодов 204 или 404/500
   } catch (error) {
