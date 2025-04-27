@@ -264,7 +264,7 @@ function FingerPlacementArea({
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в YES и не обрабатываем
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes') and setting processing flag.`);
                                     zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
-                                    onTaskAction(playerFingerId, 'yes');
+                                    onTaskAction('yes', playerFingerId);
                                     // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
                                 }
                                 // Иначе: все еще удерживаем, но не достаточно долго или уже обрабатываем
@@ -275,7 +275,7 @@ function FingerPlacementArea({
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в NO и не обрабатываем
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no') and setting processing flag.`);
                                     zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
-                                    onTaskAction(playerFingerId, 'no');
+                                    onTaskAction('no', playerFingerId);
                                     // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
                                 }
                                 // Иначе: все еще удерживаем, но не достаточно долго или уже обрабатываем

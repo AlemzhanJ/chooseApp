@@ -263,6 +263,13 @@ function GameScreen() {
             // Подсветка устанавливается в любом случае (task_assigned или finished)
             console.log(`Server selected fingerId: ${serverSelectedFingerId}. Highlighting.`);
             setHighlightedFingerId(serverSelectedFingerId); // <--- Перенесено сюда
+
+            // --- Дополнительная попытка установить подсветку через таймаут ---
+            setTimeout(() => {
+                console.log(`[Timeout] Re-setting highlight to ${serverSelectedFingerId}`);
+                setHighlightedFingerId(serverSelectedFingerId);
+            }, 50); // Небольшая задержка
+            // -------------------------------------------------------------
         } else {
             // Если статус неожиданный, сбрасываем и детали, и подсветку
             setCurrentTaskDetails(null);
