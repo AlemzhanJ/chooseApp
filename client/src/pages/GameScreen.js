@@ -233,24 +233,20 @@ function GameScreen() {
     setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
     setHighlightedFingerId(selectedFingerId); // Держим подсветку на выбранном
     try {
-        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
-        setGameData(response.game); 
-        
+        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId);
+        setGameData(response.game); // Обновляем данные сразу
+
     } catch (err) {
         console.error("Error performing selection:", err);
         const errorMsg = err.message || 'Ошибка при выборе.';
         setError(errorMsg);
         setFeedbackMessage(`Ошибка API: ${errorMsg}`);
-        setIsSelecting(false); 
-        setHighlightedFingerId(null);
     } finally {
-        // Запрашиваем данные еще раз, чтобы убедиться в актуальности всего состояния
-        await fetchGameData(false); 
-        setIsSelecting(false); 
-        setHighlightedFingerId(null); // Сбрасываем подсветку
-        setLoading(false); // Убираем лоадер после fetchGameData
+        setIsSelecting(false); // Сбрасываем статус выбора в любом случае
+        setHighlightedFingerId(null); // Сбрасываем подсветку в любом случае
+        setLoading(false); // Убираем лоадер в любом случае
     }
-  }, [gameId, fetchGameData]);
+  }, [gameId]); // Убираем fetchGameData из зависимостей, т.к. он больше не используется здесь
   // ----------------------------------------------------
 
   useEffect(() => {

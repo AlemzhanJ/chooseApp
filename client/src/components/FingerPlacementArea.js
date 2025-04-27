@@ -203,7 +203,7 @@ function FingerPlacementArea({
      if (stateNeedsUpdate) {
          setActiveTouches(updatedTouches);
      }
-  }, [getRelativeCoords, calculatedExpectedCount, gameStatus, activeTaskInfo, checkActionZones]); // Убрали onTaskAction
+  }, [getRelativeCoords, calculatedExpectedCount, gameStatus, activeTaskInfo, checkActionZones, onTaskAction]); // Добавляем onTaskAction
 
   // --- Обработчик движения касания ---
   const handleTouchMove = useCallback((e) => {
@@ -452,7 +452,6 @@ function FingerPlacementArea({
       };
   // Теперь снова зависим от calculatedExpectedCount, вычисленного снаружи
   }, [activeTouches.length, gameStatus, calculatedExpectedCount, onReadyToSelect]);
-  // ----------------------------------------
 
   // --- Эффект для обновления координат зон при изменении размера ---
    useEffect(() => {
