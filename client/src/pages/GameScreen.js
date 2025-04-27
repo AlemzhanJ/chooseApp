@@ -229,15 +229,16 @@ function GameScreen() {
 
   // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
   // useCallback, т.к. используется в useEffect анимации
-  const handlePerformSelection = useCallback(async () => {
+  const handlePerformSelection = useCallback(async (selectedFingerId) => {
     // setHighlightedFingerId(null); // <-- УДАЛЯЕМ СБРОС ЗДЕСЬ
     setLoading(true);
     setDebugSelectionResponse(null); // Сбрасываем предыдущий ответ
     setError(null);
     setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
     try {
-        console.log("Calling selectWinnerOrTaskPlayer API (no fingerId)...");
-        const response = await selectWinnerOrTaskPlayer(gameId);
+        console.log(`Calling selectWinnerOrTaskPlayer API with fingerId: ${selectedFingerId}...`);
+        // Вызываем API, передавая выбранный ID
+        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId);
         console.log("API Response:", response);
         // --- Сохраняем ответ API для отладки ---
         setDebugSelectionResponse(response.game);
@@ -263,16 +264,12 @@ function GameScreen() {
             // Подсветка устанавливается в любом случае (task_assigned или finished)
             console.log(`Server selected fingerId: ${serverSelectedFingerId}. Highlighting.`);
             setHighlightedFingerId(serverSelectedFingerId); // <--- Перенесено сюда
-
-            // --- Дополнительная попытка установить подсветку через таймаут ---
-            // Раскомментировано:
-            /* // <-- СНОВА КОММЕНТИРУЕМ
-            setTimeout(() => {
-                console.log(`[Timeout] Re-setting highlight to ${serverSelectedFingerId}`);
-                setHighlightedFingerId(serverSelectedFingerId);
-            }, 50); // Небольшая задержка
-            */ // <-- СНОВА КОММЕНТИРУЕМ
-            // -------------------------------------------------------------
+            // Убеждаемся, что подсвечен именно тот, кого выбрал клиент (и подтвердил сервер)
+            // Хотя сервер и так должен вернуть game.winnerFingerId === selectedFingerId
+            if (serverSelectedFingerId !== selectedFingerId) {
+                console.warn(`Discrepancy! Client selected ${selectedFingerId}, but server responded with winner ${serverSelectedFingerId}. Using server's choice.`);
+            }
+            setHighlightedFingerId(serverSelectedFingerId); // Устанавливаем подсветку по ответу сервера
         } else {
             // Если статус неожиданный, сбрасываем и детали, и подсветку
             setCurrentTaskDetails(null);
@@ -426,8 +423,14 @@ function GameScreen() {
       
         // Остановка анимации или следующий шаг
         if (cycles >= totalCycles) {
-            console.log("Animation finished. Calling API to perform server-side selection...");
-            handlePerformSelection();
+            console.log("Animation finished. Selecting player locally...");
+            // --- ВОЗВРАЩАЕМ: Выбор победителя на клиенте ---
+            const winnerIndex = Math.floor(Math.random() * activePlayersForAnimation.length);
+            const winnerPlayer = activePlayersForAnimation[winnerIndex];
+            setHighlightedFingerId(winnerPlayer.fingerId); // Финальная подсветка
+            console.log(`Client selected fingerId: ${winnerPlayer.fingerId}. Calling API...`);
+            // --- КОНЕЦ ВОЗВРАТА ---
+            handlePerformSelection(winnerPlayer.fingerId); // <--- Передаем выбранный ID
         } else {
             // Запускаем следующий таймаут с текущим (возможно, измененным) интервалом
             animationIntervalRef.current = setTimeout(step, intervalTime);

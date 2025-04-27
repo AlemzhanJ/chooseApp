@@ -51,9 +51,9 @@ export const startGameSelection = async (gameId, fingers) => {
   }
 };
 
-export const selectWinnerOrTaskPlayer = async (gameId) => {
+export const selectWinnerOrTaskPlayer = async (gameId, selectedFingerId) => {
   try {
-    const response = await apiClient.post(`/api/games/${gameId}/select`);
+    const response = await apiClient.post(`/api/games/${gameId}/select`, { selectedFingerId });
     return response.data;
   } catch (error) {
     console.error('API Error (selectWinnerOrTaskPlayer):', error.response || error.message);

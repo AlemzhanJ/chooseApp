@@ -122,26 +122,40 @@ exports.startGameSelection = async (req, res) => {
 // @route   POST /api/games/:gameId/select
 // @access  Public
 exports.selectWinnerOrTaskPlayer = async (req, res) => {
+  const { selectedFingerId } = req.body; // Получаем ID, выбранный клиентом
   console.log(`[${new Date().toISOString()}] --- ENTERING selectWinnerOrTaskPlayer ---`);
-  console.log(`Game ID: ${req.params.gameId}`);
-  // Логируем тело запроса, если оно ожидается (хотя в текущей логике оно не используется)
-  // console.log("Request Body:", req.body); 
-  
-  let gameToDelete = null; 
+  console.log(`Game ID: ${req.params.gameId}, Client Selected Finger ID: ${selectedFingerId}`);
+
+  let gameToDelete = null;
   try {
     const gameId = req.params.gameId;
-    console.log(`Attempting to find game with ID: ${gameId}`);
     const game = await Game.findById(gameId);
 
     if (!game) {
-        console.log(`Game not found: ${gameId}`);
+      console.log(`Game not found: ${gameId}`);
       return res.status(404).json({ msg: 'Game not found' });
     }
     console.log(`Game found. Current status: ${game.status}`);
     if (game.status !== 'selecting') {
-        console.log(`Invalid game status: ${game.status}`);
+      console.log(`Invalid game status: ${game.status}`);
       return res.status(400).json({ msg: 'Game is not in selecting state' });
     }
+
+    // --- Валидация выбранного клиентом ID ---
+    const numericSelectedFingerId = parseInt(selectedFingerId, 10);
+    if (isNaN(numericSelectedFingerId)) {
+        console.error(`Invalid selectedFingerId received from client: ${selectedFingerId}`);
+        return res.status(400).json({ msg: 'Invalid fingerId format provided by client.' });
+    }
+
+    const selectedPlayer = game.players.find(p => p.fingerId === numericSelectedFingerId && p.status === 'active');
+    if (!selectedPlayer) {
+        console.error(`Client selected fingerId ${numericSelectedFingerId}, but no such active player found.`);
+        // Вариант: выбрать случайно на сервере как fallback?
+        // Пока просто возвращаем ошибку
+        return res.status(400).json({ msg: `Selected player (${numericSelectedFingerId}) is not active or does not exist.` });
+    }
+    // --- Конец валидации ---
 
     const activePlayers = game.players.filter(p => p.status === 'active');
     console.log(`Found ${activePlayers.length} active players.`);
@@ -150,12 +164,11 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
         return res.status(400).json({ msg: 'No active players to select from' });
     }
 
-    const randomIndex = Math.floor(Math.random() * activePlayers.length);
-    const selectedPlayer = activePlayers[randomIndex];
-    game.winnerFingerId = selectedPlayer.fingerId;
-    console.log(`Selected player fingerId: ${game.winnerFingerId}`);
+    // Используем валидированный ID, выбранный клиентом
+    game.winnerFingerId = selectedPlayer.fingerId; // selectedPlayer уже найден выше при валидации
+    console.log(`Using client-selected and validated fingerId: ${game.winnerFingerId}`);
 
-    let responsePayload = {}; 
+    let responsePayload = {};
     game.currentTask = null;
 
     if (game.mode === 'simple') {
