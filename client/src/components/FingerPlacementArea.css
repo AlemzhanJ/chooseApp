@@ -360,7 +360,7 @@
 /* --- Стили для отладочной информации --- */
 .debug-info {
     position: absolute;
-    bottom: 5px;
+    bottom: 50px; /* Поднимаем выше */
     left: 5px;
     right: 5px;
     font-size: 9px; /* Мелкий шрифт */
