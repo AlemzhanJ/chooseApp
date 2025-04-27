@@ -246,7 +246,13 @@ exports.updatePlayerStatus = async (req, res) => {
 
     if (!game) return res.status(404).json({ msg: 'Game not found' });
 
-    const player = game.players.find(p => p.fingerId.toString() === fingerId);
+    const numericFingerId = parseInt(fingerId, 10); // Преобразуем параметр fingerId в число
+    if (isNaN(numericFingerId)) {
+        console.error(`[updatePlayerStatus] Invalid fingerId received: ${fingerId}`);
+        return res.status(400).json({ msg: 'Invalid fingerId format' }); // Добавляем проверку
+    }
+    const player = game.players.find(p => p.fingerId === numericFingerId); // Сравниваем числа
+
     if (!player) return res.status(404).json({ msg: 'Player not found in this game' });
 
     // --- Логика для режима заданий --- 
