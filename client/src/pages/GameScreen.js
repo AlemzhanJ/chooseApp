@@ -168,35 +168,20 @@ function GameScreen() {
             setCurrentTaskDetails(null);
         }
         // ------------------------------------------------------
-        
-        // Упрощенная проверка для показа сообщения (только если игра не завершена)
+
+        // Показываем короткое сообщение и убираем лоадер
         if (action === 'eliminate' || action === 'complete_task') {
-             // Используем playerFingerId для сообщения
             const message = action === 'eliminate'
                 ? `Игрок #${playerFingerId} выбывает!`
-                : `Игрок #${playerFingerId} отметил выполнение.`; 
-            setFeedbackMessage(message); // Показываем временное подтверждение
-            feedbackTimeoutRef.current = setTimeout(async () => { 
+                : `Игрок #${playerFingerId} отметил выполнение.`;
+            setFeedbackMessage(message);
+            if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current); // Очищаем старый таймаут, если есть
+            feedbackTimeoutRef.current = setTimeout(() => {
                 setFeedbackMessage(null);
                 feedbackTimeoutRef.current = null;
-                try {
-                    await fetchGameData(false); // Запрашиваем финальное состояние
-                } catch (fetchErr) {
-                    console.error("Error fetching game data after action:", fetchErr);
-                    setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
-                }
-                setLoading(false); // Убираем лоадер ПОСЛЕ обновления
-            }, 2000); 
-        } else {
-           // Эта ветка маловероятна для действий с заданием
-           try {
-               await fetchGameData(false); 
-           } catch (fetchErr) {
-               console.error("Error fetching game data after action (no msg branch):", fetchErr);
-               setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
-           }
-           setLoading(false); // Убираем лоадер, если не было сообщения
+            }, 1500); // Показываем сообщение 1.5 секунды
         }
+        setLoading(false); // Убираем лоадер сразу
         
     } catch (err) {
         console.error("Error updating player status:", err);
