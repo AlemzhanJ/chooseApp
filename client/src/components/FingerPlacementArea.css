@@ -303,4 +303,56 @@
 .finger-circle.task-player-finger.in-no-zone {
     background-color: #ff6b6b; /* Ярко-красный */
     box-shadow: 0 0 15px 7px #ff6b6b;
+}
+
+/* === Стили для таймера задания === */
+.task-timer-container {
+    width: 60%; /* Не такой широкий, как стартовый */
+    max-width: 250px;
+    height: 20px; /* Немного ниже */
+    background-color: rgba(255, 255, 255, 0.6); /* Полупрозрачный белый фон */
+    border-radius: 10px;
+    margin: 10px auto; /* Отступ сверху/снизу и центрирование */
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.task-timer-bar {
+    height: 100%;
+    background: linear-gradient(to right, #ff6b6b, #feca57); /* Градиент от красного к желтому */
+    border-radius: 10px;
+    transition: width 0.5s linear;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+}
+
+.task-timer-text {
+    position: relative;
+    z-index: 2;
+    color: #333; /* Темный текст для читаемости на градиенте */
+    font-weight: bold;
+    font-size: 0.9em;
+    line-height: 20px; /* Выравниваем по центру высоты контейнера */
+    text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7); /* Легкая светлая тень */
+    display: block; /* Чтобы занимал всю ширину */
+    text-align: center; /* Центрируем текст */
+}
+
+/* === Стили для текста задания === */
+.task-text-display {
+    margin: 10px 15px 5px 15px; /* Отступы */
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7); /* Белый полупрозрачный фон */
+    border-radius: 8px;
+    color: #333;
+    font-size: 1.1em;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.4;
+    max-height: 100px; /* Ограничиваем высоту, если текст длинный */
+    overflow-y: auto; /* Добавляем скролл, если текст не влезает */
 } 

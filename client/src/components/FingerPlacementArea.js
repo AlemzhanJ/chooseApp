@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './FingerPlacementArea.css';
 
+// --- Функция для форматирования времени ---
+function formatTime(seconds) {
+  if (seconds === null || seconds < 0) return "0:00";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+}
+// ------------------------------------------
+
 // Новый компонент FingerPlacementArea
 function FingerPlacementArea({
   expectedPlayers,
@@ -67,8 +76,8 @@ function FingerPlacementArea({
   // --- Функция проверки попадания в зоны действий --- 
   // Возвращает { needsUpdate: boolean, updatedTouchInfo: object | null }
   const checkActionZones = useCallback((touchInfo, x, y, isStart = false) => {
-    if (!activeTaskInfo || touchInfo.fingerId !== activeTaskInfo.playerFingerId || !onTaskAction || !areaRef.current) {
-         return { needsUpdate: false, updatedTouchInfo: null };
+    if (!activeTaskInfo || touchInfo.fingerId !== activeTaskInfo.playerFingerId || !areaRef.current) {
+        return { needsUpdate: false, updatedTouchInfo: null };
     }
 
     const yesZoneRect = actionZonesRef.current.yes;
@@ -109,7 +118,6 @@ function FingerPlacementArea({
         updatedTouchInfo.inYesZone = true;
         updatedTouchInfo.inNoZone = false; // Не может быть в обеих зонах
         needsUpdate = true;
-        onTaskAction(touchInfo.fingerId, 'yes'); // Вызываем действие при входе
     } else if (!isInYesZone && touchInfo.inYesZone) {
         console.log(`Finger ${touchInfo.fingerId} exited YES zone.`);
         updatedTouchInfo.inYesZone = false;
@@ -121,7 +129,6 @@ function FingerPlacementArea({
         updatedTouchInfo.inNoZone = true;
         updatedTouchInfo.inYesZone = false; // Не может быть в обеих зонах
         needsUpdate = true;
-        onTaskAction(touchInfo.fingerId, 'no'); // Вызываем действие при входе
     } else if (!isInNoZone && touchInfo.inNoZone) {
         console.log(`Finger ${touchInfo.fingerId} exited NO zone.`);
          updatedTouchInfo.inNoZone = false;
@@ -137,7 +144,7 @@ function FingerPlacementArea({
 
     return { needsUpdate, updatedTouchInfo: needsUpdate ? updatedTouchInfo : null };
 
-}, [activeTaskInfo, onTaskAction]); // Зависимости checkActionZones
+}, [activeTaskInfo, onTaskAction]); // Добавляем onTaskAction формально для линтера
 
   // --- Обработчик начала касания ---
   const handleTouchStart = useCallback((e) => {
@@ -222,7 +229,7 @@ function FingerPlacementArea({
      if (stateNeedsUpdate) {
          setActiveTouches(updatedTouches);
      }
-  }, [getRelativeCoords, calculatedExpectedCount, gameStatus, activeTaskInfo, onTaskAction, checkActionZones]); // Добавили checkActionZones в зависимости
+  }, [getRelativeCoords, calculatedExpectedCount, gameStatus, activeTaskInfo, checkActionZones]); // Убрали onTaskAction
 
   // --- Обработчик движения касания ---
   const handleTouchMove = useCallback((e) => {
@@ -280,19 +287,20 @@ function FingerPlacementArea({
         // Возвращаем обновленный массив (или старый, если изменений не было)
         return needsStateUpdate ? updatedTouches : prevTouches;
     });
-  }, [getRelativeCoords, gameStatus, activeTaskInfo, onTaskAction, checkActionZones]); // Добавили checkActionZones в зависимости
+  }, [getRelativeCoords, gameStatus, activeTaskInfo, checkActionZones, onTaskAction]); // Добавляем onTaskAction формально для линтера
 
   // --- Обработчик окончания/отмены касания ---
   const handleTouchEnd = useCallback((e) => {
     if (gameStatus === 'finished') return;
     // Предотвращаем стандартное поведение, если игра не в ожидании
-    if (gameStatus !== 'waiting') {
-        // e.preventDefault();
-    }
+    // if (gameStatus !== 'waiting') {
+    //     // e.preventDefault(); // Возможно, не нужно
+    // }
 
     const touches = e.changedTouches;
     let touchRemoved = false; // Флаг, что был удален хотя бы один палец
     const removedFingerIds = new Set();
+    let finalTouchStates = {}; // Сохраняем финальное состояние касаний перед удалением
 
     for (let i = 0; i < touches.length; i++) {
       const touch = touches[i];
@@ -325,8 +333,13 @@ function FingerPlacementArea({
              countdownTimerRef.current = null;
              setCountdown(null);
          }
-         // Удаляем касание из состояния
-         setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touch.identifier));
+         // --- Сохраняем последнее состояние касания перед удалением --- 
+         const finalState = activeTouchesRef.current.find(t => t.touchId === touch.identifier);
+         if (finalState) {
+             finalTouchStates[fingerId] = { ...finalState };
+             console.log(`[TouchEnd] Final state for finger ${fingerId}:`, finalState);
+         }
+         // ----------------------------------------------------
       }
     }
      // Обновляем состояние после обработки всех завершившихся касаний
@@ -334,7 +347,7 @@ function FingerPlacementArea({
         // Используем функциональное обновление для надежности
         setActiveTouches(prevTouches => prevTouches.filter(t => !removedFingerIds.has(t.fingerId)));
      }
-  }, [onFingerLift, gameStatus, activeTaskInfo]); // Добавили activeTaskInfo
+  }, [onFingerLift, gameStatus, activeTaskInfo, onTaskAction]); // Добавили onTaskAction
 
   // --- Добавление/удаление обработчиков ---
   useEffect(() => {
@@ -457,6 +470,23 @@ function FingerPlacementArea({
      };
    }, [activeTaskInfo]); // Пересчитываем при изменении activeTaskInfo (появлении/исчезновении зон)
 
+  // --- Рендеринг таймера задания ---
+  const renderTaskTimer = () => {
+    if (!activeTaskInfo || !activeTaskInfo.eliminationEnabled || activeTaskInfo.timeLeft === null || activeTaskInfo.taskTimeLimit === null || activeTaskInfo.taskTimeLimit <= 0) {
+      return null; // Не показываем таймер, если не нужно
+    }
+
+    const { timeLeft, taskTimeLimit } = activeTaskInfo;
+    const percentage = Math.max(0, (timeLeft / taskTimeLimit) * 100);
+
+    return (
+      <div className="task-timer-container">
+        <div className="task-timer-bar" style={{ width: `${percentage}%` }}></div>
+        <span className="task-timer-text">Осталось: {formatTime(timeLeft)}</span>
+      </div>
+    );
+  };
+
   // --- Получаем статус игрока по fingerId ---
   const getPlayerStatus = (fingerId) => {
       if (!gamePlayers) return 'active'; // По умолчанию активен, если данных нет
@@ -483,11 +513,18 @@ function FingerPlacementArea({
         // const isInYesZone = activeTaskInfo && fingerId === activeTaskInfo.playerFingerId && activeTouchesRef.current.find(t => t.fingerId === fingerId)?.inYesZone;
         // const isInNoZone = activeTaskInfo && fingerId === activeTaskInfo.playerFingerId && activeTouchesRef.current.find(t => t.fingerId === fingerId)?.inNoZone;
 
+        // --- Лог для проверки классов --- 
+        const classes = `finger-circle ${isHighlighted ? 'highlighted' : ''} status-${playerStatus} ${isTaskPlayerFinger ? 'task-player-finger' : ''} ${inYesZone ? 'in-yes-zone' : ''} ${inNoZone ? 'in-no-zone' : ''}`;
+        // Уменьшим частоту логов, например, только при изменении зон
+        if (isTaskPlayerFinger && (inYesZone || inNoZone)) {
+            // console.log(`[Render] Finger ${fingerId} Classes: ${classes}`);
+        }
+        // ----------------------------- 
 
         return (
           <div
             key={touchId} // Используем touchId как более стабильный ключ во время касания
-            className={`finger-circle ${isHighlighted ? 'highlighted' : ''} status-${playerStatus} ${isTaskPlayerFinger ? 'task-player-finger' : ''} ${inYesZone ? 'in-yes-zone' : ''} ${inNoZone ? 'in-no-zone' : ''}`}
+            className={classes} // Применяем сформированные классы
             style={{ left: `${x}px`, top: `${y}px` }}
           >
             #{fingerId}
@@ -531,11 +568,24 @@ function FingerPlacementArea({
 
       {/* Можно добавить сообщение во время выбора */}
       {isSelecting && (
-          <div className="instructions selecting-text">Выбираем...</div>
+        <div className="instructions selecting-text">Выбираем...</div>
       )}
       {/* Сообщение, если игрок поднял палец во время выбора/задания */}
        {gameStatus === 'task_assigned' && (
-           <div className="instructions task-active-text">Идет выполнение задания... Держите пальцы!</div>
+           <>
+             {/* Отображаем текст задания */}
+             {activeTaskInfo?.taskText && (
+               <div className="instructions task-text-display">
+                 {`Задание для #${activeTaskInfo.playerFingerId}: ${activeTaskInfo.taskText}`}
+               </div>
+             )}
+             {/* Отображаем таймер задания */}
+             {renderTaskTimer()}
+             {/* Общее сообщение */}
+             <div className="instructions task-active-text">
+               Держите палец! Поднимите его в зоне ДА или НЕТ.
+             </div>
+           </>
        )}
 
 
