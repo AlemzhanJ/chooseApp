@@ -140,6 +140,12 @@ function GameScreen() {
     const playerFingerId = fingerIdOverride !== null ? fingerIdOverride : currentTaskDetails?.playerFingerId; 
     // --------------------------------------------------------------------------
 
+    // --- Добавляем лог для проверки рассинхронизации ID ---
+    if (fingerIdOverride !== null && currentTaskDetails && currentTaskDetails.playerFingerId !== fingerIdOverride) {
+        console.warn(`[handlePlayerAction] Discrepancy: fingerIdOverride=${fingerIdOverride} but currentTaskDetails.playerFingerId=${currentTaskDetails.playerFingerId}`);
+    }
+    // -----------------------------------------------------
+
     // --- Более строгая проверка перед выполнением --- 
     // Проверяем наличие ID, только если действие связано с заданием
     if (!gameData || (isTaskRelatedAction && (playerFingerId === undefined || playerFingerId === null))) {
@@ -214,18 +220,11 @@ function GameScreen() {
   // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ ДЕЙСТВИЙ С ЗАДАНИЕМ ИЗ FINGER AREA ---
   const handleTaskAction = useCallback((action, taskPlayerFingerId) => {
     console.log(`GameScreen: handleTaskAction called with action: ${action}, fingerId: ${taskPlayerFingerId}`);
-    // Проверка, что переданный ID совпадает с тем, что в currentTaskDetails (оставляем для доп. безопасности)
-    if (currentTaskDetails?.playerFingerId === taskPlayerFingerId) {
-        // Преобразуем 'yes'/'no' в действия для бэкенда
-        const backendAction = action === 'yes' ? 'complete_task' : 'eliminate';
-        console.log(`Mapping FingerArea action '${action}' to backend action '${backendAction}' for fingerId ${taskPlayerFingerId}`);
-        handlePlayerAction(backendAction, taskPlayerFingerId); // <--- Передаем fingerId
-    } else {
-        console.warn("GameScreen: handleTaskAction called with mismatching fingerId or no active task details.", 
-            { currentTaskDetails, receivedFingerId: taskPlayerFingerId });
-    }
-    // Зависим от handlePlayerAction и currentTaskDetails (для проверки)
-  }, [handlePlayerAction, currentTaskDetails]);
+    // Сразу вызываем handlePlayerAction, передавая ID из FingerArea
+    const backendAction = action === 'yes' ? 'complete_task' : 'eliminate';
+    console.log(`Mapping FingerArea action '${action}' to backend action '${backendAction}' for fingerId ${taskPlayerFingerId}. Calling handlePlayerAction...`);
+    handlePlayerAction(backendAction, taskPlayerFingerId); // <--- Передаем fingerId напрямую
+  }, [handlePlayerAction]);
   // ------------------------------------------------------------
 
   // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
