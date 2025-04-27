@@ -233,20 +233,49 @@ function GameScreen() {
     setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
     setHighlightedFingerId(selectedFingerId); // Держим подсветку на выбранном
     try {
-        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId);
-        setGameData(response.game); // Обновляем данные сразу
+        const response = await selectWinnerOrTaskPlayer(gameId, selectedFingerId); 
+        setGameData(response.game); 
+        
+        const taskData = response.aiGeneratedTask || response.game.currentTask;
+        
+        if (taskData && response.game.status === 'task_assigned') {
+             // Устанавливаем feedbackMessage как объект задания
+             // --- Сохраняем детали задания в отдельное состояние --- 
+             setCurrentTaskDetails({
+                playerFingerId: response.game.winnerFingerId,
+                taskData: taskData,
+                taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
+                eliminationEnabled: response.game.eliminationEnabled
+            });
+             setFeedbackMessage(null); // Очищаем любые предыдущие сообщения
+             // ------------------------------------------------------
+        } else if (response.game.status === 'finished') {
+             // Статус finished, WinnerDisplay покажет победителя.
+             // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
+             setFeedbackMessage(null); // Убедимся, что сообщение сброшено
+             setCurrentTaskDetails(null); // На всякий случай сбрасываем детали задания
+        } else {
+            // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
+            setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
+             if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+             feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
+        }
 
     } catch (err) {
         console.error("Error performing selection:", err);
         const errorMsg = err.message || 'Ошибка при выборе.';
         setError(errorMsg);
         setFeedbackMessage(`Ошибка API: ${errorMsg}`);
+        setIsSelecting(false); 
+        setHighlightedFingerId(null);
     } finally {
-        setIsSelecting(false); // Сбрасываем статус выбора в любом случае
-        setHighlightedFingerId(null); // Сбрасываем подсветку в любом случае
-        setLoading(false); // Убираем лоадер в любом случае
+        // Запрашиваем данные еще раз, чтобы убедиться в актуальности всего состояния
+        await fetchGameData(false); 
+        setIsSelecting(false); 
+        setHighlightedFingerId(null); // Сбрасываем подсветку
+        setLoading(false); // Убираем лоадер после fetchGameData
     }
-  }, [gameId]); // Убираем fetchGameData из зависимостей, т.к. он больше не используется здесь
+  }, [gameId, fetchGameData]); // Добавили зависимости
   // ----------------------------------------------------
 
   useEffect(() => {
@@ -318,25 +347,14 @@ function GameScreen() {
   }, [currentTaskDetails, handlePlayerAction]);
   // ----------------------------------
 
-  // --- Эффект для установки и очистки деталей задания на основе gameData ---
+  // --- Эффект для очистки деталей задания при смене статуса --- 
   useEffect(() => {
-    if (gameData?.status === 'task_assigned' && gameData.winnerFingerId !== null && gameData.currentTask) {
-        console.log(`Game status is task_assigned. Setting task details for fingerId: ${gameData.winnerFingerId}`);
-        setCurrentTaskDetails({
-            playerFingerId: gameData.winnerFingerId,
-            taskData: gameData.currentTask, // Используем поле currentTask из gameData
-            taskTimeLimit: gameData.eliminationEnabled ? gameData.taskTimeLimit : null,
-            eliminationEnabled: gameData.eliminationEnabled
-        });
-    } else if (gameData?.status !== 'task_assigned' && currentTaskDetails) {
-        // Если статус изменился с task_assigned на другой, очищаем детали
-        console.log(`Game status is no longer task_assigned (${gameData?.status}). Clearing task details.`);
+    if (gameData?.status !== 'task_assigned' && currentTaskDetails) {
+        console.log(`Game status changed from task_assigned (${gameData?.status}). Clearing task details.`);
         setCurrentTaskDetails(null);
     }
-    // Зависимость от gameData, чтобы реагировать на все его обновления
-    // currentTaskDetails добавлен в зависимости, чтобы условие очистки сработало корректно
-  }, [gameData, currentTaskDetails]);
-  // ----------------------------------------------------------------------
+  }, [gameData?.status, currentTaskDetails]);
+  // --------------------------------------------------------
 
   // Логика анимации мерцания
   useEffect(() => {
