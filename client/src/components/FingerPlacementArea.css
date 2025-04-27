@@ -355,4 +355,10 @@
     line-height: 1.4;
     max-height: 100px; /* Ограничиваем высоту, если текст длинный */
     overflow-y: auto; /* Добавляем скролл, если текст не влезает */
+}
+
+/* === Стиль для отладочной вспышки === */
+.finger-area.debug-flash {
+    background-color: rgba(255, 0, 0, 0.4) !important; /* Ярко-красный полупрозрачный фон */
+    transition: background-color 0.1s ease-out !important; /* Быстрая вспышка */
 } 
