@@ -149,7 +149,7 @@ function GameScreen() {
        timerRef.current = null;
     }
     setTimeLeft(null); // Сбрасываем таймер в состоянии
-
+    
     setLoading(true); // Показываем лоадер для действия
     setError(null);
     if (feedbackTimeoutRef.current) {
@@ -162,21 +162,21 @@ function GameScreen() {
         console.log(`Calling updatePlayerStatus for player ${playerFingerId} with action ${action}`);
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
-
+        
         // --- Очищаем детали задания после успешного действия --- 
         if (isTaskRelatedAction) {
             setCurrentTaskDetails(null);
         }
         // ------------------------------------------------------
-
+        
         // Упрощенная проверка для показа сообщения (только если игра не завершена)
         if (action === 'eliminate' || action === 'complete_task') {
              // Используем playerFingerId для сообщения
             const message = action === 'eliminate'
                 ? `Игрок #${playerFingerId} выбывает!`
-                : `Игрок #${playerFingerId} отметил выполнение.`;
+                : `Игрок #${playerFingerId} отметил выполнение.`; 
             setFeedbackMessage(message); // Показываем временное подтверждение
-            feedbackTimeoutRef.current = setTimeout(async () => {
+            feedbackTimeoutRef.current = setTimeout(async () => { 
                 setFeedbackMessage(null);
                 feedbackTimeoutRef.current = null;
                 try {
@@ -186,18 +186,18 @@ function GameScreen() {
                     setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
                 }
                 setLoading(false); // Убираем лоадер ПОСЛЕ обновления
-            }, 2000);
+            }, 2000); 
         } else {
            // Эта ветка маловероятна для действий с заданием
            try {
-               await fetchGameData(false);
+               await fetchGameData(false); 
            } catch (fetchErr) {
                console.error("Error fetching game data after action (no msg branch):", fetchErr);
                setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
            }
            setLoading(false); // Убираем лоадер, если не было сообщения
         }
-
+        
     } catch (err) {
         console.error("Error updating player status:", err);
         const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
@@ -207,7 +207,7 @@ function GameScreen() {
     }
 
   // Зависимости: gameId, fetchGameData, gameData (для проверки статуса), currentTaskDetails (для очистки и получения ID по умолчанию)
-  }, [gameId, fetchGameData, gameData, currentTaskDetails]);
+  }, [gameId, fetchGameData, gameData, currentTaskDetails]); 
   // --- Конец переноса handlePlayerAction --- 
 
   // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ ДЕЙСТВИЙ С ЗАДАНИЕМ ИЗ FINGER AREA ---
@@ -220,7 +220,7 @@ function GameScreen() {
         console.log(`Mapping FingerArea action '${action}' to backend action '${backendAction}' for fingerId ${taskPlayerFingerId}`);
         handlePlayerAction(backendAction, taskPlayerFingerId); // <--- Передаем fingerId
     } else {
-        console.warn("GameScreen: handleTaskAction called with mismatching fingerId or no active task details.",
+        console.warn("GameScreen: handleTaskAction called with mismatching fingerId or no active task details.", 
             { currentTaskDetails, receivedFingerId: taskPlayerFingerId });
     }
     // Зависим от handlePlayerAction и currentTaskDetails (для проверки)
@@ -237,8 +237,8 @@ function GameScreen() {
         console.log("Calling selectWinnerOrTaskPlayer API (no fingerId)...");
         const response = await selectWinnerOrTaskPlayer(gameId);
         console.log("API Response:", response);
-        setGameData(response.game);
-
+        setGameData(response.game); 
+        
         const taskData = response.aiGeneratedTask || response.game.currentTask;
         const serverSelectedFingerId = response.game.winnerFingerId; // ID выбранного сервером
 
@@ -248,10 +248,10 @@ function GameScreen() {
             setHighlightedFingerId(serverSelectedFingerId);
         }
         // ----------------------------------------------------
-
+        
         if (taskData && response.game.status === 'task_assigned') {
              // Устанавливаем feedbackMessage как объект задания
-             // --- Сохраняем детали задания в отдельное состояние ---
+             // --- Сохраняем детали задания в отдельное состояние --- 
              setCurrentTaskDetails({
                 playerFingerId: serverSelectedFingerId, // <--- Используем ID от сервера
                 taskData: taskData,
@@ -278,12 +278,12 @@ function GameScreen() {
         const errorMsg = err.message || 'Ошибка при выборе.';
         setError(errorMsg);
         setFeedbackMessage(`Ошибка API: ${errorMsg}`);
-        setIsSelecting(false);
+        setIsSelecting(false); 
         setHighlightedFingerId(null);
     } finally {
         // Запрашиваем данные еще раз, чтобы убедиться в актуальности всего состояния
-        await fetchGameData(false);
-        setIsSelecting(false);
+        await fetchGameData(false); 
+        setIsSelecting(false); 
         // Сбрасываем подсветку только если не finished и не task_assigned
         if (gameDataRef.current?.status !== 'finished' && gameDataRef.current?.status !== 'task_assigned') {
             setHighlightedFingerId(null);
@@ -405,15 +405,15 @@ function GameScreen() {
         // Получаем fingerId подсвечиваемого игрока из *отфильтрованного* массива
         const playerToHighlight = activePlayersForAnimation[currentIndex % activePlayersForAnimation.length];
         setHighlightedFingerId(playerToHighlight.fingerId);
-
+      
         currentIndex++;
         cycles++;
 
         // Ускорение
         if (cycles > accelerationPoint && intervalTime > 50) {
-            intervalTime = Math.max(50, intervalTime * 0.85);
+            intervalTime = Math.max(50, intervalTime * 0.85); 
         }
-
+      
         // Остановка анимации или следующий шаг
         if (cycles >= totalCycles) {
             console.log("Animation finished. Calling API to perform server-side selection...");
