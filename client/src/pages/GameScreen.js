@@ -381,7 +381,7 @@ function GameScreen() {
         clearTimeout(animationIntervalRef.current); // Используем clearTimeout для рекурсивного setTimeout
         animationIntervalRef.current = null;
       }
-      setHighlightedFingerId(null);
+      // setHighlightedFingerId(null); // <-- УБИРАЕМ ОТСЮДА
       return;
     }
 
@@ -433,6 +433,8 @@ function GameScreen() {
         clearTimeout(animationIntervalRef.current); // Используем clearTimeout
         animationIntervalRef.current = null;
       }
+      console.log("[Cleanup Animation Effect] Resetting highlight.");
+      setHighlightedFingerId(null); // <-- ПЕРЕНОСИМ СБРОС СЮДА
     };
     // Зависим от isSelecting и gameData (для получения players)
     // handlePerformSelection добавлена, т.к. используется внутри
