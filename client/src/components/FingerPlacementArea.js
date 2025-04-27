@@ -39,6 +39,15 @@ function FingerPlacementArea({
      }
   }, [gameStatus]);
 
+  // --- Вычисляем количество активных игроков, ожидаемых на экране --- 
+  let calculatedExpectedCount;
+  if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
+      calculatedExpectedCount = expectedPlayers ?? 0;
+  } else {
+      calculatedExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
+  }
+  // ----------------------------------------------------------------
+
   // --- Получение координат относительно области ---
   const getRelativeCoords = useCallback((touch) => {
     if (!areaRef.current) return null;
@@ -184,15 +193,6 @@ function FingerPlacementArea({
       const currentTouches = activeTouchesRef.current; // Получаем массив касаний из ref
       const currentTouchCount = currentTouches.length;
 
-      // --- Вычисляем ОЖИДАЕМОЕ количество АКТИВНЫХ игроков ВНУТРИ эффекта --- 
-      let calculatedExpectedCount;
-      if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
-          calculatedExpectedCount = expectedPlayers ?? 0;
-      } else {
-          calculatedExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
-      }
-      // ----------------------------------------------------------------------
-
       // --- Логирование для отладки таймера --- 
       console.log(
         '[Timer Check]',
@@ -248,12 +248,8 @@ function FingerPlacementArea({
               countdownTimerRef.current = null;
           }
       };
-  // Зависим от количества касаний и статуса игры для старта/остановки таймера
-  // onReadyToSelect нужен для вызова внутри таймера
-  // Убрали activePlayersExpectedCount из зависимостей, т.к. вычисляем внутри
-  // gamePlayers и expectedPlayers неявно используются в вычислении, React может предупредить, но посмотрим
-  }, [activeTouches.length, gameStatus, onReadyToSelect, gamePlayers, expectedPlayers]); 
-  // Добавили gamePlayers и expectedPlayers в зависимости, т.к. они теперь используются внутри эффекта
+  // Теперь снова зависим от calculatedExpectedCount, вычисленного снаружи
+  }, [activeTouches.length, gameStatus, calculatedExpectedCount, onReadyToSelect]);
   // ----------------------------------------
 
   // --- Получаем статус игрока по fingerId ---
@@ -290,7 +286,7 @@ function FingerPlacementArea({
       {/* Инструкции или кнопка */}
       {!isSelecting && gameStatus === 'waiting' && (
         <div className="instructions">
-            {activeTouches.length < expectedPlayers
+            {activeTouches.length < calculatedExpectedCount
                 ? `Положите пальцы (${activeTouches.length}/${calculatedExpectedCount || '...'})`
                 : 'Все пальцы на месте!'
             }
