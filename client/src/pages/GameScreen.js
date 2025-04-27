@@ -163,7 +163,7 @@ function GameScreen() {
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
         
-        // --- Очищаем детали задания после успешного действия --- 
+        // --- ЯВНО Очищаем детали задания после успешного действия --- 
         if (isTaskRelatedAction) {
             setCurrentTaskDetails(null);
         }
@@ -215,6 +215,7 @@ function GameScreen() {
   // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
   // useCallback, т.к. используется в useEffect анимации
   const handlePerformSelection = useCallback(async () => {
+    setHighlightedFingerId(null); // <-- Явно сбрасываем подсветку перед началом
     setLoading(true);
     setError(null);
     setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
