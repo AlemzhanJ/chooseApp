@@ -230,7 +230,7 @@ function GameScreen() {
   // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
   // useCallback, т.к. используется в useEffect анимации
   const handlePerformSelection = useCallback(async () => {
-    setHighlightedFingerId(null); // <-- Явно сбрасываем подсветку перед началом
+    // setHighlightedFingerId(null); // <-- УДАЛЯЕМ СБРОС ЗДЕСЬ
     setLoading(true);
     setDebugSelectionResponse(null); // Сбрасываем предыдущий ответ
     setError(null);
@@ -265,10 +265,13 @@ function GameScreen() {
             setHighlightedFingerId(serverSelectedFingerId); // <--- Перенесено сюда
 
             // --- Дополнительная попытка установить подсветку через таймаут ---
+            // Раскомментировано:
+            /* // <-- СНОВА КОММЕНТИРУЕМ
             setTimeout(() => {
                 console.log(`[Timeout] Re-setting highlight to ${serverSelectedFingerId}`);
                 setHighlightedFingerId(serverSelectedFingerId);
             }, 50); // Небольшая задержка
+            */ // <-- СНОВА КОММЕНТИРУЕМ
             // -------------------------------------------------------------
         } else {
             // Если статус неожиданный, сбрасываем и детали, и подсветку
