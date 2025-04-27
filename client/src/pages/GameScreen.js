@@ -31,6 +31,11 @@ function GameScreen() {
   const feedbackTimeoutRef = useRef(null);
   const animationIntervalRef = useRef(null); // Ref для интервала анимации
 
+  // --- Состояния для отладки ответов API ---
+  const [debugLastApiResponse, setDebugLastApiResponse] = useState(null);
+  const [debugSelectionResponse, setDebugSelectionResponse] = useState(null);
+  // -----------------------------------------
+
   // Новые состояния для анимации выбора
   const [isSelecting, setIsSelecting] = useState(false); 
   // const [highlightedIndex, setHighlightedIndex] = useState(null); // Заменяем на ID
@@ -162,6 +167,9 @@ function GameScreen() {
         console.log(`Calling updatePlayerStatus for player ${playerFingerId} with action ${action}`);
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
+        // --- Сохраняем ответ API для отладки ---
+        setDebugLastApiResponse(updatedGame);
+        // ---------------------------------------
         
         // --- ЯВНО Очищаем детали задания после успешного действия --- 
         if (isTaskRelatedAction) {
@@ -217,13 +225,17 @@ function GameScreen() {
   const handlePerformSelection = useCallback(async () => {
     setHighlightedFingerId(null); // <-- Явно сбрасываем подсветку перед началом
     setLoading(true);
+    setDebugSelectionResponse(null); // Сбрасываем предыдущий ответ
     setError(null);
     setFeedbackMessage(null); // Очищаем предыдущее сообщение ('Выбран #X...')
     try {
         console.log("Calling selectWinnerOrTaskPlayer API (no fingerId)...");
         const response = await selectWinnerOrTaskPlayer(gameId);
         console.log("API Response:", response);
-        setGameData(response.game); 
+        // --- Сохраняем ответ API для отладки ---
+        setDebugSelectionResponse(response.game);
+        // ---------------------------------------
+        setGameData(response.game);
         
         const taskData = response.aiGeneratedTask || response.game.currentTask;
         const serverSelectedFingerId = response.game.winnerFingerId; // ID выбранного сервером
@@ -585,8 +597,22 @@ function GameScreen() {
           zIndex: 2000, // Поверх feedback message
           opacity: 0.8
       }}>
-          GS Status: {gameData?.status ?? 'loading'}<br />
-          Task Details: {currentTaskDetails ? 'Exists' : 'None'}
+          <div style={{marginBottom: '3px', borderBottom: '1px solid #555'}}>
+             <b>Live State:</b><br />
+             Status: {gameData?.status ?? 'N/A'}<br />
+             Task Det: {currentTaskDetails ? `Exists (P${currentTaskDetails.playerFingerId})` : 'None'}<br />
+             Highlight: {highlightedFingerId ?? 'N/A'}
+          </div>
+          <div style={{marginBottom: '3px', borderBottom: '1px solid #555'}}>
+             <b>Selection Resp:</b><br />
+             Status: {debugSelectionResponse?.status ?? 'N/A'}<br />
+             WinnerID: {debugSelectionResponse?.winnerFingerId ?? 'N/A'}
+          </div>
+          <div>
+             <b>Last Update Resp:</b><br />
+             Status: {debugLastApiResponse?.status ?? 'N/A'}<br />
+             WinnerID: {debugLastApiResponse?.winnerFingerId ?? 'N/A'}
+          </div>
       </div>
       {/* === End GameScreen Debug Info === */}
 
