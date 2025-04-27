@@ -355,4 +355,22 @@
     line-height: 1.4;
     max-height: 100px; /* Ограничиваем высоту, если текст длинный */
     overflow-y: auto; /* Добавляем скролл, если текст не влезает */
+}
+
+/* --- Стили для отладочной информации --- */
+.debug-info {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+    font-size: 9px; /* Мелкий шрифт */
+    color: #666;
+    background-color: rgba(230, 230, 230, 0.8);
+    padding: 5px;
+    border-radius: 4px;
+    word-wrap: break-word; /* Перенос длинных строк */
+    white-space: normal; /* Разрешаем перенос строк */
+    z-index: 100; /* Поверх всего */
+    max-height: 100px; /* Ограничим высоту */
+    overflow-y: auto; /* Добавим скролл если не влезает */
 } 
