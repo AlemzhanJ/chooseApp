@@ -33,7 +33,7 @@ function FingerPlacementArea({
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
-  const zoneHoldRef = useRef({ zone: null, startTime: null }); // Ref для таймера удержания в зоне
+  const zoneHoldRef = useRef({ zone: null, startTime: null, processing: false }); // Ref для таймера удержания в зоне + флаг обработки
 
   // --- Ref для отслеживания зон действия ---
   const actionZonesRef = useRef({ yes: null, no: null });
@@ -189,7 +189,7 @@ function FingerPlacementArea({
                         updatedTouches[touchIndex] = { ...updatedTouches[touchIndex], inYesZone: isInYesZone, inNoZone: isInNoZone };
                         stateNeedsUpdate = true;
                         // Сбрасываем таймер удержания, если палец начал касание в новой зоне
-                        zoneHoldRef.current = { zone: null, startTime: null };
+                        zoneHoldRef.current = { zone: null, startTime: null, processing: false };
                     }
                 }
             } else if (fingerId === undefined) {
@@ -260,27 +260,29 @@ function FingerPlacementArea({
                             if (newInYesZone) {
                                 if (currentHold.zone !== 'yes') { // Только что вошли в YES
                                     console.log(`[TouchMove] Finger ${playerFingerId} entered YES zone. Starting timer.`);
-                                    zoneHoldRef.current = { zone: 'yes', startTime: now };
-                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в YES
-                                    console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes').`);
+                                    zoneHoldRef.current = { zone: 'yes', startTime: now, processing: false }; // Начинаем без обработки
+                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в YES и не обрабатываем
+                                    console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes') and setting processing flag.`);
+                                    zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
                                     onTaskAction(playerFingerId, 'yes');
-                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                    // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
                                 }
-                                // Иначе: все еще удерживаем, но не достаточно долго
+                                // Иначе: все еще удерживаем, но не достаточно долго или уже обрабатываем
                             } else if (newInNoZone) {
                                 if (currentHold.zone !== 'no') { // Только что вошли в NO
                                     console.log(`[TouchMove] Finger ${playerFingerId} entered NO zone. Starting timer.`);
-                                    zoneHoldRef.current = { zone: 'no', startTime: now };
-                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в NO
-                                    console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no').`);
+                                    zoneHoldRef.current = { zone: 'no', startTime: now, processing: false }; // Начинаем без обработки
+                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в NO и не обрабатываем
+                                    console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no') and setting processing flag.`);
+                                    zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
                                     onTaskAction(playerFingerId, 'no');
-                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                    // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
                                 }
-                                // Иначе: все еще удерживаем, но не достаточно долго
+                                // Иначе: все еще удерживаем, но не достаточно долго или уже обрабатываем
                             } else { // Не в зоне YES и не в зоне NO
                                 if (currentHold.zone !== null) { // Только что вышли из зоны
                                     console.log(`[TouchMove] Finger ${playerFingerId} exited zone ${currentHold.zone}. Resetting timer.`);
-                                    zoneHoldRef.current = { zone: null, startTime: null };
+                                    zoneHoldRef.current = { zone: null, startTime: null, processing: false }; // Сбрасываем все при выходе
                                 }
                             }
                             // --- Конец логики удержания --- 
@@ -354,7 +356,7 @@ function FingerPlacementArea({
          // --- Сброс таймера удержания, если палец поднят игроком задания --- 
          if (gameStatus === 'task_assigned' && activeTaskInfo && fingerId === activeTaskInfo.playerFingerId) {
            console.log(`[TouchEnd] Task player finger ${fingerId} lifted. Resetting hold timer.`);
-           zoneHoldRef.current = { zone: null, startTime: null };
+           zoneHoldRef.current = { zone: null, startTime: null, processing: false }; // Сбрасываем все при поднятии
          }
          // ------------------------------------------------------------------
       }
@@ -486,6 +488,24 @@ function FingerPlacementArea({
        observer.disconnect();
      };
    }, [activeTaskInfo]); // Пересчитываем при изменении activeTaskInfo (появлении/исчезновении зон)
+
+  // --- Эффект для сброса таймера удержания при завершении задания --- 
+  useEffect(() => {
+    if (!activeTaskInfo && zoneHoldRef.current.processing) {
+        console.log("Task ended (activeTaskInfo is null), resetting zoneHoldRef processing flag.");
+        zoneHoldRef.current = { zone: null, startTime: null, processing: false };
+    }
+    // Добавляем также сброс если зона есть, но флаг processing остался (на всякий случай)
+    else if (activeTaskInfo && zoneHoldRef.current.zone && zoneHoldRef.current.processing) {
+       // Если палец все еще в зоне, но activeTaskInfo обновился (маловероятно, но возможно)
+       // Может произойти если GameScreen обновил activeTaskInfo, но палец не двигался
+       // Оставляем startTime, но сбрасываем processing, чтобы таймер мог сработать снова, если нужно
+       // console.log("Task info updated while processing flag was true. Resetting flag, keeping timer.");
+       // zoneHoldRef.current = { ...zoneHoldRef.current, processing: false };
+       // ------> Решил пока убрать эту ветку, чтобы не усложнять. Основной сброс при !activeTaskInfo.
+    }
+  }, [activeTaskInfo]);
+  // -------------------------------------------------------------------
 
   // --- Рендеринг таймера задания ---
   const renderTaskTimer = () => {
