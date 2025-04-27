@@ -39,17 +39,6 @@ function FingerPlacementArea({
      }
   }, [gameStatus]);
 
-  // --- Вычисляем количество активных игроков, ожидаемых на экране --- 
-  let activePlayersExpectedCount;
-  if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
-    // Первый раунд, используем изначальное число игроков из настроек
-    activePlayersExpectedCount = expectedPlayers ?? 0;
-  } else {
-    // Последующие раунды или другие статусы, считаем активных из массива игроков
-    activePlayersExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
-  }
-  // ----------------------------------------------------------------
-
   // --- Получение координат относительно области ---
   const getRelativeCoords = useCallback((touch) => {
     if (!areaRef.current) return null;
@@ -193,8 +182,29 @@ function FingerPlacementArea({
       // Проверяем условия: статус waiting, нужное кол-во пальцев, таймер еще не запущен
       // Используем activeTouchesRef для получения актуальной длины внутри эффекта
       const currentTouches = activeTouchesRef.current; // Получаем массив касаний из ref
+      const currentTouchCount = currentTouches.length;
+
+      // --- Вычисляем ОЖИДАЕМОЕ количество АКТИВНЫХ игроков ВНУТРИ эффекта --- 
+      let calculatedExpectedCount;
+      if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
+          calculatedExpectedCount = expectedPlayers ?? 0;
+      } else {
+          calculatedExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
+      }
+      // ----------------------------------------------------------------------
+
+      // --- Логирование для отладки таймера --- 
+      console.log(
+        '[Timer Check]',
+        `Status: ${gameStatus},`, 
+        `Touches: ${currentTouchCount},`, 
+        `ExpectedActive (calculated): ${calculatedExpectedCount},`, // Используем вычисленное значение
+        `TimerRef: ${countdownTimerRef.current ? 'Exists' : 'null'}`
+    );
+      // ---------------------------------------
+
       // Сравниваем количество ТЕКУЩИХ КАСАНИЙ с ОЖИДАЕМЫМ КОЛИЧЕСТВОМ АКТИВНЫХ ИГРОКОВ
-      if (gameStatus === 'waiting' && currentTouches.length === activePlayersExpectedCount && activePlayersExpectedCount > 0 && !countdownTimerRef.current) {
+      if (gameStatus === 'waiting' && currentTouchCount === calculatedExpectedCount && calculatedExpectedCount > 0 && !countdownTimerRef.current) {
           console.log('All fingers placed, starting auto-start countdown...');
           setCountdown(COUNTDOWN_DURATION);
           countdownTimerRef.current = setInterval(() => {
@@ -212,16 +222,18 @@ function FingerPlacementArea({
                       clearInterval(countdownTimerRef.current);
                       countdownTimerRef.current = null;
                        // Передаем только те пальцы, которые соответствуют АКТИВНЫМ игрокам на момент старта
-                       const fingersToStart = activeTouchesRef.current.filter(touch => 
+                       /*const fingersToStart = activeTouchesRef.current.filter(touch => 
                            gamePlayers?.find(p => p.fingerId === touch.fingerId && p.status === 'active')
                        );
-                       onReadyToSelect(fingersToStart.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })));
+                       onReadyToSelect(fingersToStart.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y }))); */
+                       // Упрощаем: передаем все текущие пальцы
+                       onReadyToSelect(activeTouchesRef.current.map(t => ({ fingerId: t.fingerId, x: t.x, y: t.y })));
                        return null; // Возвращаем null, т.к. отсчет закончился
                   }
                   return nextCountdown;
               });
           }, 1000);
-      } else if (currentTouches.length < activePlayersExpectedCount && countdownTimerRef.current) {
+      } else if (currentTouchCount < calculatedExpectedCount && countdownTimerRef.current) {
           // Если убрали палец во время отсчета (условие дублируется в handleTouchEnd, но для надежности)
           console.log('Finger removed during countdown (detected by useEffect), stopping timer.');
           clearInterval(countdownTimerRef.current);
@@ -238,9 +250,10 @@ function FingerPlacementArea({
       };
   // Зависим от количества касаний и статуса игры для старта/остановки таймера
   // onReadyToSelect нужен для вызова внутри таймера
-  // Теперь зависим от activePlayersExpectedCount вместо expectedPlayers
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTouches.length, gameStatus, activePlayersExpectedCount, onReadyToSelect]);
+  // Убрали activePlayersExpectedCount из зависимостей, т.к. вычисляем внутри
+  // gamePlayers и expectedPlayers неявно используются в вычислении, React может предупредить, но посмотрим
+  }, [activeTouches.length, gameStatus, onReadyToSelect, gamePlayers, expectedPlayers]); 
+  // Добавили gamePlayers и expectedPlayers в зависимости, т.к. они теперь используются внутри эффекта
   // ----------------------------------------
 
   // --- Получаем статус игрока по fingerId ---
@@ -278,7 +291,7 @@ function FingerPlacementArea({
       {!isSelecting && gameStatus === 'waiting' && (
         <div className="instructions">
             {activeTouches.length < expectedPlayers
-                ? `Положите пальцы (${activeTouches.length}/${activePlayersExpectedCount || '...'})`
+                ? `Положите пальцы (${activeTouches.length}/${calculatedExpectedCount || '...'})`
                 : 'Все пальцы на месте!'
             }
             {/* Показываем таймер, если он активен */}
