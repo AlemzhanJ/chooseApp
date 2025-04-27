@@ -136,7 +136,8 @@ function GameScreen() {
   const handlePlayerAction = useCallback(async (action, fingerIdOverride = null) => { // Добавлен fingerIdOverride
     // --- Получаем ID игрока: сначала из override, потом из деталей задания --- 
     const isTaskRelatedAction = action === 'eliminate' || action === 'complete_task';
-    const playerFingerId = fingerIdOverride !== null ? fingerIdOverride : currentTaskDetails?.playerFingerId;
+    // Используем ?. для playerFingerId на случай если currentTaskDetails еще не успел очиститься
+    const playerFingerId = fingerIdOverride !== null ? fingerIdOverride : currentTaskDetails?.playerFingerId; 
     // --------------------------------------------------------------------------
 
     // --- Более строгая проверка перед выполнением --- 
@@ -162,13 +163,16 @@ function GameScreen() {
         feedbackTimeoutRef.current = null;
     }
 
+    // --- Устанавливаем статус API вызова в pending ---
+    setDebugLastApiResponse({ status: 'pending', action: action, fingerId: playerFingerId });
+    // -----------------------------------------------
     try {
         // Используем ID игрока, полученный из override или currentTaskDetails
         console.log(`Calling updatePlayerStatus for player ${playerFingerId} with action ${action}`);
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
         // --- Сохраняем ответ API для отладки ---
-        setDebugLastApiResponse(updatedGame);
+        setDebugLastApiResponse({ status: 'success', response: updatedGame });
         // ---------------------------------------
         
         // --- ЯВНО Очищаем детали задания после успешного действия --- 
@@ -193,9 +197,13 @@ function GameScreen() {
         
     } catch (err) {
         console.error("Error updating player status:", err);
-        const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
-        setError(errorMsg);
-        setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); // Показываем ошибку
+        // --- Сохраняем ошибку API для отладки ---
+        const errorMsg = err.message || 'Unknown error in updatePlayerStatus';
+        setDebugLastApiResponse({ status: 'error', message: errorMsg });
+        // ---------------------------------------
+        const errorMsgDisplay = err.message || 'Ошибка при обновлении статуса игрока.';
+        setError(errorMsgDisplay);
+        setFeedbackMessage(`Ошибка обновления: ${errorMsgDisplay}`); // Показываем ошибку
         setLoading(false); // Убираем лоадер при ошибке
     }
 
@@ -240,36 +248,31 @@ function GameScreen() {
         const taskData = response.aiGeneratedTask || response.game.currentTask;
         const serverSelectedFingerId = response.game.winnerFingerId; // ID выбранного сервером
 
-        // --- Устанавливаем подсветку после ответа сервера ---
+        // --- Устанавливаем подсветку и детали задания ПОСЛЕ ответа сервера ---
         if (response.game.status === 'task_assigned' || response.game.status === 'finished') {
+            if (response.game.status === 'task_assigned' && taskData) {
+                // Сначала детали, потом подсветка
+                setCurrentTaskDetails({
+                    playerFingerId: serverSelectedFingerId,
+                    taskData: taskData,
+                    taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
+                    eliminationEnabled: response.game.eliminationEnabled
+                });
+            } else {
+                setCurrentTaskDetails(null); // Сбрасываем детали, если игра закончилась
+            }
+            // Подсветка устанавливается в любом случае (task_assigned или finished)
             console.log(`Server selected fingerId: ${serverSelectedFingerId}. Highlighting.`);
-            setHighlightedFingerId(serverSelectedFingerId);
+            setHighlightedFingerId(serverSelectedFingerId); // <--- Перенесено сюда
+        } else {
+            // Если статус неожиданный, сбрасываем и детали, и подсветку
+            setCurrentTaskDetails(null);
+            setHighlightedFingerId(null);
+            setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
+            if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+            feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
         }
         // ----------------------------------------------------
-        
-        if (taskData && response.game.status === 'task_assigned') {
-             // Устанавливаем feedbackMessage как объект задания
-             // --- Сохраняем детали задания в отдельное состояние --- 
-             setCurrentTaskDetails({
-                playerFingerId: serverSelectedFingerId, // <--- Используем ID от сервера
-                taskData: taskData,
-                taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
-                eliminationEnabled: response.game.eliminationEnabled
-            });
-             setFeedbackMessage(null); // Очищаем любые предыдущие сообщения
-             // ------------------------------------------------------
-        } else if (response.game.status === 'finished') {
-             // Статус finished, WinnerDisplay покажет победителя.
-             // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
-             setFeedbackMessage(null); // Убедимся, что сообщение сброшено
-             setCurrentTaskDetails(null); // На всякий случай сбрасываем детали задания
-        } else {
-            // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
-            setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
-             if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
-             feedbackTimeoutRef.current = setTimeout(() => setFeedbackMessage(null), 3000);
-             setHighlightedFingerId(null); // Сбрасываем подсветку, если статус неожиданный
-        }
 
     } catch (err) {
         console.error("Error performing selection:", err);
@@ -611,7 +614,9 @@ function GameScreen() {
           <div>
              <b>Last Update Resp:</b><br />
              Status: {debugLastApiResponse?.status ?? 'N/A'}<br />
-             WinnerID: {debugLastApiResponse?.winnerFingerId ?? 'N/A'}
+             {debugLastApiResponse?.status === 'pending' && `Act: ${debugLastApiResponse.action} (P${debugLastApiResponse.fingerId})`}
+             {debugLastApiResponse?.status === 'success' && `Resp St: ${debugLastApiResponse.response?.status}, WinID: ${debugLastApiResponse.response?.winnerFingerId ?? 'N/A'}`}
+             {debugLastApiResponse?.status === 'error' && `Error: ${debugLastApiResponse.message}`}
           </div>
       </div>
       {/* === End GameScreen Debug Info === */}
