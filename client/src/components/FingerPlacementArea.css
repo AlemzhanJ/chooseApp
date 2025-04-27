@@ -167,7 +167,8 @@
     border: 3px solid #ffa726; /* Темнее оранжевый */
     transform: translate(-50%, -50%); /* Центрируем круг относительно точки касания */
     pointer-events: none; /* Круги не должны мешать касаниям области */
-    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.1s linear; /* Плавность + быстрое перемещение */
+    transition: background-color 0.3s ease, transform 0.1s linear, box-shadow 0.3s ease; /* Плавные переходы */
+    z-index: 5; /* Поверх инструкций, но ниже зон */
 }
 
 /* Подсветка во время выбора */
@@ -233,13 +234,73 @@
 }
 
 .countdown-timer-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #343a40; /* Темный текст для контраста с желтым */
-    font-size: 0.9em;
+    position: relative; /* Чтобы был поверх бара */
+    z-index: 2;
+    color: #fff;
     font-weight: bold;
-    z-index: 2; /* Выше полосы */
-    white-space: nowrap; /* Запрещаем перенос текста */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Тень для читаемости */
+}
+
+/* === Стили для зон действий (ДА/НЕТ) === */
+.finger-area.task-active {
+    /* Можно изменить фон или добавить рамку при активном задании */
+    /* background-color: #3a3f4a; */
+}
+
+.action-zone {
+    position: absolute;
+    width: 100px; /* Ширина зоны */
+    height: 100px; /* Высота зоны */
+    border-radius: 50%; /* Круглая зона */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.8em;
+    font-weight: bold;
+    color: white;
+    z-index: 2; /* Выше инструкций, но ниже пальцев */
+    opacity: 0.8; /* Полупрозрачные */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none; /* Сами зоны не интерактивны, ловим на родительском */
+}
+
+.action-zone.yes {
+    background-color: rgba(76, 175, 80, 0.7); /* Зеленый */
+    /* top: 20px;
+    left: 20px; */
+    /* Позиционирование в левом верхнем углу */
+    top: 5%;
+    left: 5%;
+    transform: translate(0, 0); /* Сбрасываем центрирование transform */
+
+}
+
+.action-zone.no {
+    background-color: rgba(255, 107, 107, 0.7); /* Красный */
+    /* top: 20px;
+    right: 20px; */
+    /* Позиционирование в правом верхнем углу */
+     top: 5%;
+     right: 5%;
+    transform: translate(0, 0); /* Сбрасываем центрирование transform */
+}
+
+
+/* Стили для пальца игрока, выполняющего задание */
+.finger-circle.task-player-finger {
+    /* Можно добавить особую рамку или анимацию */
+     border: 3px solid white;
+     box-shadow: 0 0 10px 3px white;
+     z-index: 6; /* Убедимся, что палец задания виден поверх зон */
+}
+
+/* Дополнительные стили, когда палец игрока находится в зоне */
+.finger-circle.task-player-finger.in-yes-zone {
+    background-color: #4caf50; /* Ярко-зеленый */
+     box-shadow: 0 0 15px 7px #4caf50;
+}
+
+.finger-circle.task-player-finger.in-no-zone {
+    background-color: #ff6b6b; /* Ярко-красный */
+    box-shadow: 0 0 15px 7px #ff6b6b;
 } 

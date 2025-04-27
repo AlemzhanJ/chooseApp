@@ -26,7 +26,8 @@ function GameScreen() {
   const [error, setError] = useState(null);
   // Добавляем состояние для задачи, которая будет отображаться (из БД или AI)
   // const [currentDisplayTask, setCurrentDisplayTask] = useState(null); // Удаляем это состояние
-  const [feedbackMessage, setFeedbackMessage] = useState(null); // Теперь может быть string или { type: 'task', ... }
+  const [feedbackMessage, setFeedbackMessage] = useState(null); // Теперь может быть string или { type: 'task', ... } // Остается только для временных string сообщений
+  const [currentTaskDetails, setCurrentTaskDetails] = useState(null); // { playerFingerId, taskData, taskTimeLimit, eliminationEnabled } | null
   const feedbackTimeoutRef = useRef(null);
   const animationIntervalRef = useRef(null); // Ref для интервала анимации
 
@@ -39,8 +40,6 @@ function GameScreen() {
   // --- Состояние и Ref для таймера задания --- 
   const [timeLeft, setTimeLeft] = useState(null);
   const timerRef = useRef(null);
-  // --- Ref для хранения ID игрока, выполняющего задание ---
-  const taskPlayerFingerIdRef = useRef(null);
   // -----------------------------------------
 
   const gameDataRef = useRef(gameData); // Используем ref для доступа к последнему gameData в cleanup
@@ -77,9 +76,11 @@ function GameScreen() {
   // --- НОВЫЙ ОБРАБОТЧИК: Поднятие пальца ---
   const handleFingerLift = useCallback(async (liftedFingerId) => {
       console.log(`GameScreen: handleFingerLift called for fingerId: ${liftedFingerId}`);
-      // Игру не трогаем, если она уже завершена или если палец поднят в состоянии waiting
-      if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting') {
-          console.log(`GameScreen: Ignoring finger lift in status: ${gameData?.status}`);
+      // Игру не трогаем, если она уже завершена или если палец поднят в состоянии waiting (когда таймер еще не пошел)
+      // Также игнорируем, если идет задание и палец принадлежит исполнителю задания (он должен быть на месте)
+      if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting' ||
+          (gameData.status === 'task_assigned' && currentTaskDetails?.playerFingerId === liftedFingerId)) {
+          console.log(`GameScreen: Ignoring finger lift in status: ${gameData?.status} or for task player: ${liftedFingerId}`);
           return;
       }
 
@@ -117,40 +118,38 @@ function GameScreen() {
       } catch (err) {
           console.error("Error updating player status after finger lift:", err);
           const errorMsg = err.message || 'Ошибка при обработке поднятия пальца.';
-          // Не сбрасываем feedbackMessage при ошибке, чтобы пользователь видел ее
           setError(errorMsg);
           setFeedbackMessage(`Ошибка: ${errorMsg}`);
       } finally {
           // setLoading(false);
       }
-  }, [gameId, gameData]); // Зависит от gameData для проверки статуса
+  }, [gameId, gameData, currentTaskDetails]); // Зависит от gameData для проверки статуса
   // ----------------------------------------
 
   // --- Обработчик действия игрока --- 
   // Переносим сюда, чтобы он был определен до использования в useEffect таймера
   const handlePlayerAction = useCallback(async (action) => { 
-    // --- Захватываем данные из feedbackMessage ДО изменения состояния ---
-    const currentFeedback = feedbackMessage; 
-    // --- Используем Ref для получения ID игрока задания --- 
-    const playerFingerId = taskPlayerFingerIdRef.current; 
-    // -----------------------------------------------------------------
+    // --- Получаем ID игрока из currentTaskDetails, если это действие по заданию --- 
+    const isTaskRelatedAction = action === 'eliminate' || action === 'complete_task';
+    const playerFingerId = isTaskRelatedAction ? currentTaskDetails?.playerFingerId : undefined;
+    // --------------------------------------------------------------------------
 
     // --- Более строгая проверка перед выполнением --- 
-    if (!gameData || playerFingerId === undefined || playerFingerId === null) {
-        console.error("handlePlayerAction: Aborting. Invalid context. GameData:", gameData, "FeedbackMsg:", currentFeedback, "Action:", action);
+    if (!gameData || (isTaskRelatedAction && (playerFingerId === undefined || playerFingerId === null))) {
+        console.error("handlePlayerAction: Aborting. Invalid context.", { gameData, action, playerFingerId, currentTaskDetails });
         return; // Прерываем выполнение, если контекст неверный
     }
     // --------------------------------------------------
 
     // Используем захваченный playerFingerId и продолжаем...
-    setFeedbackMessage(null); // Сразу скрываем уведомление
+    // setFeedbackMessage(null); // Не сбрасываем общие уведомления здесь
     if (timerRef.current) {
        clearInterval(timerRef.current);
        timerRef.current = null;
     }
     setTimeLeft(null); // Сбрасываем таймер в состоянии
     
-    setLoading(true);
+    setLoading(true); // Показываем лоадер для действия
     setError(null);
     if (feedbackTimeoutRef.current) {
         clearTimeout(feedbackTimeoutRef.current);
@@ -158,21 +157,14 @@ function GameScreen() {
     }
 
     try {
-        // Используем захваченный playerFingerId
+        // Используем ID игрока, полученный из currentTaskDetails
+        console.log(`Calling updatePlayerStatus for player ${playerFingerId} with action ${action}`);
         const updatedGame = await updatePlayerStatus(gameId, playerFingerId, action);
         setGameData(updatedGame);
         
-        // --- Проверка на завершение игры ПОСЛЕ обновления --- 
-        if (updatedGame.status === 'finished') {
-            // Если игра закончилась этим действием, сразу убираем сообщение
-            if (feedbackTimeoutRef.current) {
-                clearTimeout(feedbackTimeoutRef.current);
-                feedbackTimeoutRef.current = null;
-            }
-            setFeedbackMessage(null);
-            setLoading(false); // Убираем лоадер, т.к. обработка завершена
-            taskPlayerFingerIdRef.current = null; // Сбрасываем ID игрока задания
-            return; // Выходим, так как дальнейшая логика feedbackMessage не нужна
+        // --- Очищаем детали задания после успешного действия --- 
+        if (isTaskRelatedAction) {
+            setCurrentTaskDetails(null);
         }
         // ------------------------------------------------------
         
@@ -201,21 +193,37 @@ function GameScreen() {
                console.error("Error fetching game data after action (no msg branch):", fetchErr);
                setError(fetchErr.message || 'Ошибка загрузки состояния после действия.')
            }
-           setLoading(false); // Убираем лоадер
+           setLoading(false); // Убираем лоадер, если не было сообщения
         }
         
     } catch (err) {
         console.error("Error updating player status:", err);
         const errorMsg = err.message || 'Ошибка при обновлении статуса игрока.';
         setError(errorMsg);
-        setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); 
+        setFeedbackMessage(`Ошибка обновления: ${errorMsg}`); // Показываем ошибку
         setLoading(false); // Убираем лоадер при ошибке
     }
 
   // Убираем feedbackMessage и добавляем комментарий для линтера
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, fetchGameData, gameData]); 
+  }, [gameId, fetchGameData, gameData, currentTaskDetails]); 
   // --- Конец переноса handlePlayerAction --- 
+
+  // --- НОВЫЙ ОБРАБОТЧИК ДЛЯ ДЕЙСТВИЙ С ЗАДАНИЕМ ИЗ FINGER AREA ---
+  const handleTaskAction = useCallback((action, taskPlayerFingerId) => {
+    console.log(`GameScreen: handleTaskAction called with action: ${action}, fingerId: ${taskPlayerFingerId}`);
+    // Проверка, что переданный ID совпадает с тем, что в currentTaskDetails
+    if (currentTaskDetails?.playerFingerId === taskPlayerFingerId) {
+        // Преобразуем 'yes'/'no' в действия для бэкенда
+        const backendAction = action === 'yes' ? 'complete_task' : 'eliminate';
+        console.log(`Mapping FingerArea action '${action}' to backend action '${backendAction}'`);
+        handlePlayerAction(backendAction); // Вызываем общий обработчик
+    } else {
+        console.warn("GameScreen: handleTaskAction called with mismatching fingerId or no active task details.", 
+            { currentTaskDetails, receivedFingerId: taskPlayerFingerId });
+    }
+  }, [handlePlayerAction, currentTaskDetails]);
+  // ------------------------------------------------------------
 
   // --- ОБРАБОТЧИК ЗАВЕРШЕНИЯ ВЫБОРА (ПОСЛЕ АНИМАЦИИ) ---
   // useCallback, т.к. используется в useEffect анимации
@@ -232,17 +240,20 @@ function GameScreen() {
         
         if (taskData && response.game.status === 'task_assigned') {
              // Устанавливаем feedbackMessage как объект задания
-             setFeedbackMessage({
-                 type: 'task', 
-                 taskData: taskData,
-                 playerFingerId: response.game.winnerFingerId,
-                 taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
-                 eliminationEnabled: response.game.eliminationEnabled
-             });
+             // --- Сохраняем детали задания в отдельное состояние --- 
+             setCurrentTaskDetails({
+                playerFingerId: response.game.winnerFingerId,
+                taskData: taskData,
+                taskTimeLimit: response.game.eliminationEnabled ? response.game.taskTimeLimit : null,
+                eliminationEnabled: response.game.eliminationEnabled
+            });
+             setFeedbackMessage(null); // Очищаем любые предыдущие сообщения
+             // ------------------------------------------------------
         } else if (response.game.status === 'finished') {
              // Статус finished, WinnerDisplay покажет победителя.
              // Убираем установку feedbackMessage, чтобы не было лишнего уведомления.
              setFeedbackMessage(null); // Убедимся, что сообщение сброшено
+             setCurrentTaskDetails(null); // На всякий случай сбрасываем детали задания
         } else {
             // Если статус не task_assigned и не finished (не должно быть, но на всякий случай)
             setFeedbackMessage(`Выбор завершен, статус: ${response.game.status}`);
@@ -282,6 +293,7 @@ function GameScreen() {
           if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
           if (animationIntervalRef.current) clearTimeout(animationIntervalRef.current); 
           if (timerRef.current) clearInterval(timerRef.current); 
+          setCurrentTaskDetails(null); // Сброс задания при размонтировании
       };
   // Пустой массив зависимостей, чтобы cleanup сработал только один раз при размонтировании
   // gameId и gameDataRef доступны благодаря замыканию и ref
@@ -290,21 +302,13 @@ function GameScreen() {
   // --- Эффект для таймера задания --- 
   useEffect(() => {
     // Запускаем таймер только если feedbackMessage - это задание с лимитом
-    // и есть ID игрока задания
-    const isTaskMessage = feedbackMessage?.type === 'task';
-    const timeLimit = feedbackMessage?.taskTimeLimit;
-    const elimination = feedbackMessage?.eliminationEnabled;
-    const currentPlayerId = feedbackMessage?.playerFingerId; // Получаем ID из сообщения
+    // Используем currentTaskDetails
+    const taskDetails = currentTaskDetails;
+    const timeLimit = taskDetails?.taskTimeLimit;
+    const elimination = taskDetails?.eliminationEnabled;
+    const playerFingerIdForTimer = taskDetails?.playerFingerId; // Захватываем ID для замыкания
 
-    // Обновляем Ref с ID игрока задания
-    if (isTaskMessage && currentPlayerId !== undefined) {
-        taskPlayerFingerIdRef.current = currentPlayerId;
-    } else if (!isTaskMessage) {
-         taskPlayerFingerIdRef.current = null; // Сбрасываем, если не задание
-    }
-
-    // Запускаем таймер, если все условия соблюдены
-    if (isTaskMessage && elimination && timeLimit > 0 && taskPlayerFingerIdRef.current !== null) {
+    if (taskDetails && elimination && timeLimit > 0) {
       setTimeLeft(timeLimit); // Устанавливаем начальное время
 
       timerRef.current = setInterval(() => {
@@ -314,9 +318,9 @@ function GameScreen() {
             timerRef.current = null;
             console.log('Time is up! Eliminating player.');
             // Вызываем выбывание для текущего игрока задания
-            // Используем ID из Ref, так как feedbackMessage может уже сброситься
-            if (taskPlayerFingerIdRef.current !== null) {
-                handlePlayerAction('eliminate');
+            // Используем захваченный playerFingerIdForTimer
+            if (playerFingerIdForTimer !== undefined) {
+                handlePlayerAction('eliminate'); // Вызываем действие выбывания
             }
             return 0;
           }
@@ -339,9 +343,18 @@ function GameScreen() {
       }
       setTimeLeft(null); 
     }
-    // Зависимости: сам объект feedbackMessage (чтобы реагировать на его появление/смену) и handlePlayerAction
-  }, [feedbackMessage, handlePlayerAction]);
+    // Зависимости: currentTaskDetails (чтобы реагировать на его появление/смену) и handlePlayerAction
+  }, [currentTaskDetails, handlePlayerAction]);
   // ----------------------------------
+
+  // --- Эффект для очистки деталей задания при смене статуса --- 
+  useEffect(() => {
+    if (gameData?.status !== 'task_assigned' && currentTaskDetails) {
+        console.log(`Game status changed from task_assigned (${gameData?.status}). Clearing task details.`);
+        setCurrentTaskDetails(null);
+    }
+  }, [gameData?.status, currentTaskDetails]);
+  // --------------------------------------------------------
 
   // Логика анимации мерцания
   useEffect(() => {
@@ -446,37 +459,6 @@ function GameScreen() {
   }, [gameId]); // Добавляем зависимость gameId
   // --------------------------------------
 
-  // --- Обработчик свайпа во время задания ---
-  const handleSwipeAction = useCallback((direction, fingerId) => {
-      console.log(`GameScreen: handleSwipeAction called. Direction: ${direction}, FingerId: ${fingerId}`);
-
-      // Проверяем, что игра в статусе задания и свайп сделал нужный игрок
-      if (gameData?.status !== 'task_assigned') {
-          console.warn("Swipe detected but game not in task_assigned status.");
-          return;
-      }
-
-      if (fingerId !== taskPlayerFingerIdRef.current) {
-           console.warn(`Swipe detected from wrong fingerId: ${fingerId}. Expected: ${taskPlayerFingerIdRef.current}`);
-           return;
-      }
-
-      // Определяем действие на основе направления
-      const action = direction === 'right' ? 'complete_task' : 'eliminate';
-
-      // Проверяем, разрешено ли выбывание для свайпа влево
-      if (action === 'eliminate' && !gameData.eliminationEnabled) {
-          console.warn("Swipe left detected but elimination is disabled.");
-          // Можно показать короткое сообщение пользователю?
-          return;
-      }
-
-      console.log(`Calling handlePlayerAction('${action}') for fingerId ${fingerId}...`);
-      handlePlayerAction(action); // Вызываем основной обработчик
-
-  }, [gameData, handlePlayerAction]); // Зависит от gameData (для статуса и eliminationEnabled) и handlePlayerAction
-  // --------------------------------------
-
   if (error) {
     return <div className="game-container status-message error-message">Ошибка: {error}</div>;
   }
@@ -500,19 +482,26 @@ function GameScreen() {
       if (isSelecting) {
           title = 'Выбираем...';
       } else if (gameData.status === 'task_assigned') {
-          title = `Задание для #${gameData.winnerFingerId}...`;
+          // Убираем текст задания из заголовка FingerPlacementArea
+          // title = `Задание для #${gameData.winnerFingerId}...`; 
+          title = 'Выполните задание!'; // Новый общий заголовок для фазы задания
       } else if (gameData.status === 'waiting' && gameData.players?.length > 0) {
-          // Определяем, есть ли активные пальцы, которых меньше ожидаемого
-          const activeTouchesCount = document.querySelectorAll('.finger-circle.status-active').length;
-          const expectedActiveCount = gameData.players.filter(p => p.status === 'active').length;
-
           // Если вернулись в waiting после прерывания выбора/задания
-          if (activeTouchesCount < expectedActiveCount) {
-              title = 'Кто-то убрал палец! Ждем возвращения...';
-          } else {
-              title = 'Ожидание готовности...';
-          }
+          title = 'Ожидание готовности...';
       }
+
+      // --- Информация для FingerPlacementArea о текущем задании ---
+      const activeTaskInfo = gameData.status === 'task_assigned' && currentTaskDetails
+          ? { 
+              playerFingerId: currentTaskDetails.playerFingerId,
+              eliminationEnabled: currentTaskDetails.eliminationEnabled,
+              taskText: currentTaskDetails.taskData?.text || 'Выполните задание!',
+              isAiGenerated: currentTaskDetails.taskData?.isAiGenerated || false,
+              timeLeft: timeLeft, // Передаем актуальное состояние таймера
+              taskTimeLimit: currentTaskDetails.taskTimeLimit
+            }
+          : null;
+      // -----------------------------------------------------------
 
       return (
           <>
@@ -541,9 +530,11 @@ function GameScreen() {
                           gamePlayers={gameData.players}
                           onFingerLift={handleFingerLift}
                           onReadyToSelect={handleReadyToSelect}
-                          isSelecting={isSelecting}
-                          onSwipeAction={handleSwipeAction} // <-- Передаем новый обработчик
+                          isSelecting={isSelecting} 
                           highlightedFingerId={highlightedFingerId}
+                          // НОВЫЕ ПРОПСЫ для задания
+                          activeTaskInfo={activeTaskInfo}
+                          onTaskAction={handleTaskAction} 
                           // disabled больше не нужен
                       />
                   </div>
@@ -568,31 +559,11 @@ function GameScreen() {
 
   return (
     <div className="game-container">
-       {/* --- Обновленный рендеринг feedbackMessage --- */} 
-       {loading && <div className="loading-overlay">Загрузка...</div>} {/* Показываем лоадер */} 
-       {feedbackMessage && (
-           <div className={`feedback-message ${feedbackMessage.type === 'task' ? 'task-notification' : 'simple-notification'} show`}> 
-               {typeof feedbackMessage === 'string' ? (
-                   <p>{feedbackMessage}</p>
-               ) : feedbackMessage.type === 'task' ? (
-                   <>
-                      {/* Опциональный AI значок */} 
-                      {feedbackMessage.taskData?.isAiGenerated && <div className="ai-badge small">✨ AI</div>}
-                      {/* Заголовок задания */}
-                      <p className="task-title">Задание для #{feedbackMessage.playerFingerId}:</p>
-                      {/* Текст задания */} 
-                      <p className="task-text-popup">{feedbackMessage.taskData?.text || 'Текст задания отсутствует'}</p>
-                      {/* Таймер */} 
-                      {timeLeft !== null && feedbackMessage.taskTimeLimit && (
-                          <div className="timer-container-popup">
-                              <div className="timer-bar-popup" style={{ width: `${(timeLeft / feedbackMessage.taskTimeLimit) * 100}%` }}></div>
-                              <span className="timer-text-popup">{timeLeft} сек</span>
-                          </div>
-                      )}
-                      {/* --- Кнопки действий удалены --- */} 
-                      {/* Подсказка о свайпах теперь в FingerPlacementArea */} 
-                   </>
-               ) : null /* Обработка других типов сообщений, если нужно */}
+       {/* --- Рендеринг ТОЛЬКО строковых feedbackMessage --- */} 
+       {feedbackMessage && feedbackMessage.type !== 'task' && ( // НЕ показываем сообщение типа task здесь
+           <div className={`feedback-message simple-notification show`}> 
+               <p>{feedbackMessage}</p>
+                {/* Можно добавить обработку других НЕ task типов, если нужно */} 
            </div>
        )}
        {/* ----------------------------------------- */} 
