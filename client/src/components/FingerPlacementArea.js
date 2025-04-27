@@ -33,6 +33,7 @@ function FingerPlacementArea({
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
+  const zoneHoldRef = useRef({ zone: null, startTime: null }); // Ref для таймера удержания в зоне
 
   // --- Ref для отслеживания зон действия ---
   const actionZonesRef = useRef({ yes: null, no: null });
@@ -74,10 +75,13 @@ function FingerPlacementArea({
   }, []);
 
   // --- Функция проверки попадания в зоны действий --- 
-  // Возвращает { needsUpdate: boolean, updatedTouchInfo: object | null }
-  const checkActionZones = useCallback((touchInfo, x, y, isStart = false) => {
+  // Возвращает { isInYesZone: boolean, isInNoZone: boolean }
+  const checkActionZones = useCallback((touchInfo, x, y) => {
+    // Убираем onTaskAction из условия, т.к. действие вызывается в handleTouchEnd
+    // Упрощаем: проверяем только для назначенного игрока
     if (!activeTaskInfo || touchInfo.fingerId !== activeTaskInfo.playerFingerId || !areaRef.current) {
-        return { needsUpdate: false, updatedTouchInfo: null };
+        // Возвращаем false, если это не палец задания или нет данных
+        return { isInYesZone: false, isInNoZone: false };
     }
 
     const yesZoneRect = actionZonesRef.current.yes;
@@ -110,41 +114,9 @@ function FingerPlacementArea({
     const isInYesZone = yesZone && x >= yesZone.left && x <= yesZone.right && y >= yesZone.top && y <= yesZone.bottom;
     const isInNoZone = noZone && x >= noZone.left && x <= noZone.right && y >= noZone.top && y <= noZone.bottom;
 
-    let needsUpdate = false;
-    let updatedTouchInfo = { ...touchInfo }; // Копируем для изменений
-
-    if (isInYesZone && !touchInfo.inYesZone) {
-        console.log(`Finger ${touchInfo.fingerId} entered YES zone.`);
-        updatedTouchInfo.inYesZone = true;
-        updatedTouchInfo.inNoZone = false; // Не может быть в обеих зонах
-        needsUpdate = true;
-    } else if (!isInYesZone && touchInfo.inYesZone) {
-        console.log(`Finger ${touchInfo.fingerId} exited YES zone.`);
-        updatedTouchInfo.inYesZone = false;
-        needsUpdate = true;
-    }
-
-    if (isInNoZone && !touchInfo.inNoZone) {
-        console.log(`Finger ${touchInfo.fingerId} entered NO zone.`);
-        updatedTouchInfo.inNoZone = true;
-        updatedTouchInfo.inYesZone = false; // Не может быть в обеих зонах
-        needsUpdate = true;
-    } else if (!isInNoZone && touchInfo.inNoZone) {
-        console.log(`Finger ${touchInfo.fingerId} exited NO zone.`);
-         updatedTouchInfo.inNoZone = false;
-        needsUpdate = true;
-    }
-
-     // Эта логика теперь не нужна, так как touchstart вызывает checkActionZones с isStart=true,
-     // и мы уже проверили зоны выше.
-     /* if (isStart && (isInYesZone || isInNoZone) && !needsUpdate) {
-          // ... (логика для isStart)
-      } */
-
-
-    return { needsUpdate, updatedTouchInfo: needsUpdate ? updatedTouchInfo : null };
-
-}, [activeTaskInfo, onTaskAction]); // Добавляем onTaskAction формально для линтера
+    // Возвращаем только флаги
+    return { isInYesZone, isInNoZone };
+  }, [activeTaskInfo]); // Зависит только от activeTaskInfo
 
   // --- Обработчик начала касания ---
   const handleTouchStart = useCallback((e) => {
@@ -212,10 +184,12 @@ function FingerPlacementArea({
                 // Используем updatedTouches, т.к. setActiveTouches еще не был вызван
                 const touchIndex = updatedTouches.findIndex(t => t.touchId === touch.identifier);
                 if (touchIndex !== -1) {
-                    const result = checkActionZones(updatedTouches[touchIndex], coords.x, coords.y, true);
-                    if (result.needsUpdate) {
-                        updatedTouches[touchIndex] = result.updatedTouchInfo;
+                    const { isInYesZone, isInNoZone } = checkActionZones(updatedTouches[touchIndex], coords.x, coords.y);
+                    if (isInYesZone !== updatedTouches[touchIndex].inYesZone || isInNoZone !== updatedTouches[touchIndex].inNoZone) {
+                        updatedTouches[touchIndex] = { ...updatedTouches[touchIndex], inYesZone: isInYesZone, inNoZone: isInNoZone };
                         stateNeedsUpdate = true;
+                        // Сбрасываем таймер удержания, если палец начал касание в новой зоне
+                        zoneHoldRef.current = { zone: null, startTime: null };
                     }
                 }
             } else if (fingerId === undefined) {
@@ -232,6 +206,7 @@ function FingerPlacementArea({
   }, [getRelativeCoords, calculatedExpectedCount, gameStatus, activeTaskInfo, checkActionZones]); // Убрали onTaskAction
 
   // --- Обработчик движения касания ---
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleTouchMove = useCallback((e) => {
     if (gameStatus === 'finished') return;
     // Предотвращаем стандартное поведение, если игра не в ожидании
@@ -266,12 +241,49 @@ function FingerPlacementArea({
                     // --- Проверка зон при движении ---
                     if (gameStatus === 'task_assigned' && activeTaskInfo && onTaskAction) {
                         // Вызываем проверку зон ТОЛЬКО для пальца назначенного игрока
-                        if (currentTouchInfo.fingerId === activeTaskInfo.playerFingerId) {
-                            const zoneCheckResult = checkActionZones(currentTouchInfo, coords.x, coords.y);
-                            if (zoneCheckResult.needsUpdate) {
-                                currentTouchInfo = zoneCheckResult.updatedTouchInfo; // Обновляем инфо, если зона изменилась
+                        const playerFingerId = activeTaskInfo.playerFingerId;
+                        if (currentTouchInfo.fingerId === playerFingerId) {
+                            const { isInYesZone: newInYesZone, isInNoZone: newInNoZone } = checkActionZones(currentTouchInfo, coords.x, coords.y);
+                            const previousInYesZone = currentTouchInfo.inYesZone;
+                            const previousInNoZone = currentTouchInfo.inNoZone;
+
+                            // Обновляем флаги в состоянии, если они изменились
+                            if (newInYesZone !== previousInYesZone || newInNoZone !== previousInNoZone) {
+                                currentTouchInfo = { ...currentTouchInfo, inYesZone: newInYesZone, inNoZone: newInNoZone };
                                 touchInfoUpdated = true;
                             }
+
+                            // --- Логика удержания в зоне --- 
+                            const now = Date.now();
+                            const currentHold = zoneHoldRef.current;
+
+                            if (newInYesZone) {
+                                if (currentHold.zone !== 'yes') { // Только что вошли в YES
+                                    console.log(`[TouchMove] Finger ${playerFingerId} entered YES zone. Starting timer.`);
+                                    zoneHoldRef.current = { zone: 'yes', startTime: now };
+                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в YES
+                                    console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes').`);
+                                    onTaskAction(playerFingerId, 'yes');
+                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                }
+                                // Иначе: все еще удерживаем, но не достаточно долго
+                            } else if (newInNoZone) {
+                                if (currentHold.zone !== 'no') { // Только что вошли в NO
+                                    console.log(`[TouchMove] Finger ${playerFingerId} entered NO zone. Starting timer.`);
+                                    zoneHoldRef.current = { zone: 'no', startTime: now };
+                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в NO
+                                    console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no').`);
+                                    onTaskAction(playerFingerId, 'no');
+                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                }
+                                // Иначе: все еще удерживаем, но не достаточно долго
+                            } else { // Не в зоне YES и не в зоне NO
+                                if (currentHold.zone !== null) { // Только что вышли из зоны
+                                    console.log(`[TouchMove] Finger ${playerFingerId} exited zone ${currentHold.zone}. Resetting timer.`);
+                                    zoneHoldRef.current = { zone: null, startTime: null };
+                                }
+                            }
+                            // --- Конец логики удержания --- 
                         }
                     }
                     // -------------------------------
@@ -287,7 +299,7 @@ function FingerPlacementArea({
         // Возвращаем обновленный массив (или старый, если изменений не было)
         return needsStateUpdate ? updatedTouches : prevTouches;
     });
-  }, [getRelativeCoords, gameStatus, activeTaskInfo, checkActionZones, onTaskAction]); // Добавляем onTaskAction формально для линтера
+  }, [getRelativeCoords, gameStatus, activeTaskInfo, checkActionZones, onTaskAction]); // onTaskAction ЗДЕСЬ НУЖНА, но линтер ругается
 
   // --- Обработчик окончания/отмены касания ---
   const handleTouchEnd = useCallback((e) => {
@@ -339,7 +351,12 @@ function FingerPlacementArea({
              finalTouchStates[fingerId] = { ...finalState };
              console.log(`[TouchEnd] Final state for finger ${fingerId}:`, finalState);
          }
-         // ----------------------------------------------------
+         // --- Сброс таймера удержания, если палец поднят игроком задания --- 
+         if (gameStatus === 'task_assigned' && activeTaskInfo && fingerId === activeTaskInfo.playerFingerId) {
+           console.log(`[TouchEnd] Task player finger ${fingerId} lifted. Resetting hold timer.`);
+           zoneHoldRef.current = { zone: null, startTime: null };
+         }
+         // ------------------------------------------------------------------
       }
     }
      // Обновляем состояние после обработки всех завершившихся касаний
@@ -347,7 +364,7 @@ function FingerPlacementArea({
         // Используем функциональное обновление для надежности
         setActiveTouches(prevTouches => prevTouches.filter(t => !removedFingerIds.has(t.fingerId)));
      }
-  }, [onFingerLift, gameStatus, activeTaskInfo, onTaskAction]); // Добавили onTaskAction
+  }, [onFingerLift, gameStatus, activeTaskInfo]); // Убрали onTaskAction из зависимостей
 
   // --- Добавление/удаление обработчиков ---
   useEffect(() => {
@@ -583,7 +600,7 @@ function FingerPlacementArea({
              {renderTaskTimer()}
              {/* Общее сообщение */}
              <div className="instructions task-active-text">
-               Держите палец! Поднимите его в зоне ДА или НЕТ.
+               Удерживайте палец в зоне ДА или НЕТ 2 секунды.
              </div>
            </>
        )}
