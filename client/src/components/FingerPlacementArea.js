@@ -29,8 +29,6 @@ function FingerPlacementArea({
   const COUNTDOWN_DURATION = 3; // Длительность отсчета в секундах
   // --- Ref для хранения актуального состояния activeTouches --- 
   const activeTouchesRef = useRef(activeTouches);
-  // --- Состояние для отладочной вспышки --- 
-  const [flashTrigger, setFlashTrigger] = useState(false);
   // ---------------------------------------------
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
@@ -265,7 +263,6 @@ function FingerPlacementArea({
                                     zoneHoldRef.current = { zone: 'yes', startTime: now, processing: false }; // Начинаем без обработки
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в YES и не обрабатываем
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes') and setting processing flag.`);
-                                    setFlashTrigger(true); // <-- Запускаем вспышку
                                     zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
                                     onTaskAction(playerFingerId, 'yes');
                                     // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
@@ -277,7 +274,6 @@ function FingerPlacementArea({
                                     zoneHoldRef.current = { zone: 'no', startTime: now, processing: false }; // Начинаем без обработки
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000 && !currentHold.processing) { // Удерживали 2с в NO и не обрабатываем
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no') and setting processing flag.`);
-                                    setFlashTrigger(true); // <-- Запускаем вспышку
                                     zoneHoldRef.current = { ...currentHold, processing: true }; // Ставим флаг ПЕРЕД вызовом
                                     onTaskAction(playerFingerId, 'no');
                                     // zoneHoldRef.current = { zone: null, startTime: null }; // НЕ сбрасываем таймер здесь
@@ -510,17 +506,6 @@ function FingerPlacementArea({
   }, [activeTaskInfo]);
   // -------------------------------------------------------------------
 
-  // --- Эффект для сброса вспышки --- 
-  useEffect(() => {
-     if (flashTrigger) {
-         const timer = setTimeout(() => {
-             setFlashTrigger(false);
-         }, 300); // Длительность вспышки 300мс
-         return () => clearTimeout(timer);
-     }
-  }, [flashTrigger]);
-  // ----------------------------------
-
   // --- Рендеринг таймера задания ---
   const renderTaskTimer = () => {
     if (!activeTaskInfo || !activeTaskInfo.eliminationEnabled || activeTaskInfo.timeLeft === null || activeTaskInfo.taskTimeLimit === null || activeTaskInfo.taskTimeLimit <= 0) {
@@ -548,7 +533,7 @@ function FingerPlacementArea({
   return (
     <div
       ref={areaRef}
-      className={`finger-area ${isSelecting ? 'selecting' : ''} status-${gameStatus} ${countdown !== null ? 'counting-down' : ''} ${activeTaskInfo ? 'task-active' : ''} ${flashTrigger ? 'debug-flash' : ''}`}
+      className={`finger-area ${isSelecting ? 'selecting' : ''} status-${gameStatus} ${countdown !== null ? 'counting-down' : ''} ${activeTaskInfo ? 'task-active' : ''}`}
       // style={{ touchAction: 'none' }} // Предотвращаем стандартные действия браузера
     >
       {/* Отображаем активные касания */}

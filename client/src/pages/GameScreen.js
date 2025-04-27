@@ -485,6 +485,15 @@ function GameScreen() {
       }
 
       // --- Информация для FingerPlacementArea о текущем задании ---
+      // --- Логирование перед расчетом activeTaskInfo ---
+      /* // <-- УБРАНО
+      console.log('[Render] Calculating activeTaskInfo:', {
+          gameStatus: gameData?.status,
+          currentTaskDetailsExists: !!currentTaskDetails,
+          // currentTaskDetails: currentTaskDetails // Можно раскомментировать для полных деталей
+      });
+      */ // <-- УБРАНО
+      // -------------------------------------------------
       const activeTaskInfo = gameData.status === 'task_assigned' && currentTaskDetails
           ? { 
               playerFingerId: currentTaskDetails.playerFingerId,
@@ -561,6 +570,24 @@ function GameScreen() {
            </div>
        )}
        {/* ----------------------------------------- */} 
+
+      {/* === GameScreen Debug Info === */}
+      <div style={{
+          position: 'absolute',
+          top: '5px',
+          right: '5px',
+          background: 'rgba(0, 0, 0, 0.6)',
+          color: '#00FF00', // Ярко-зеленый текст
+          padding: '5px 8px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          zIndex: 2000, // Поверх feedback message
+          opacity: 0.8
+      }}>
+          GS Status: {gameData?.status ?? 'loading'}<br />
+          Task Details: {currentTaskDetails ? 'Exists' : 'None'}
+      </div>
+      {/* === End GameScreen Debug Info === */}
 
       {renderGameContent()}
     </div>
