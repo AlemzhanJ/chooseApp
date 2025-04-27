@@ -33,7 +33,7 @@ function FingerPlacementArea({
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
-  const zoneHoldRef = useRef({ zone: null, startTime: null }); // Ref для таймера удержания в зоне
+  const zoneHoldRef = useRef({ zone: null, startTime: null, intervalId: null }); // Ref для таймера удержания в зоне
 
   // --- Ref для отслеживания зон действия ---
   const actionZonesRef = useRef({ yes: null, no: null });
@@ -189,7 +189,7 @@ function FingerPlacementArea({
                         updatedTouches[touchIndex] = { ...updatedTouches[touchIndex], inYesZone: isInYesZone, inNoZone: isInNoZone };
                         stateNeedsUpdate = true;
                         // Сбрасываем таймер удержания, если палец начал касание в новой зоне
-                        zoneHoldRef.current = { zone: null, startTime: null };
+                        zoneHoldRef.current = { zone: null, startTime: null, intervalId: null };
                     }
                 }
             } else if (fingerId === undefined) {
@@ -244,46 +244,59 @@ function FingerPlacementArea({
                         const playerFingerId = activeTaskInfo.playerFingerId;
                         if (currentTouchInfo.fingerId === playerFingerId) {
                             const { isInYesZone: newInYesZone, isInNoZone: newInNoZone } = checkActionZones(currentTouchInfo, coords.x, coords.y);
-                            const previousInYesZone = currentTouchInfo.inYesZone;
-                            const previousInNoZone = currentTouchInfo.inNoZone;
+                            const previousZone = zoneHoldRef.current.zone; // Запоминаем предыдущую зону из ref
 
                             // Обновляем флаги в состоянии, если они изменились
-                            if (newInYesZone !== previousInYesZone || newInNoZone !== previousInNoZone) {
+                            if (newInYesZone !== currentTouchInfo.inYesZone || newInNoZone !== currentTouchInfo.inNoZone) {
                                 currentTouchInfo = { ...currentTouchInfo, inYesZone: newInYesZone, inNoZone: newInNoZone };
                                 touchInfoUpdated = true;
                             }
 
-                            // --- Логика удержания в зоне --- 
-                            const now = Date.now();
+                            // --- Логика удержания в зоне с setInterval --- 
                             const currentHold = zoneHoldRef.current;
+                            let targetZone = null;
+                            if (newInYesZone) targetZone = 'yes';
+                            else if (newInNoZone) targetZone = 'no';
 
-                            if (newInYesZone) {
-                                if (currentHold.zone !== 'yes') { // Только что вошли в YES
-                                    console.log(`[TouchMove] Finger ${playerFingerId} entered YES zone. Starting timer.`);
-                                    zoneHoldRef.current = { zone: 'yes', startTime: now };
-                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в YES
-                                    console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes').`);
-                                    onTaskAction(playerFingerId, 'yes');
-                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                            // Если изменилась зона или вышли из зоны
+                            if (targetZone !== previousZone) {
+                                // 1. Очистить старый интервал, если он был
+                                if (currentHold.intervalId) {
+                                    console.log(`[TouchMove] Zone changed/exited (${previousZone} -> ${targetZone}). Clearing interval ${currentHold.intervalId}`);
+                                    clearInterval(currentHold.intervalId);
                                 }
-                                // Иначе: все еще удерживаем, но не достаточно долго
-                            } else if (newInNoZone) {
-                                if (currentHold.zone !== 'no') { // Только что вошли в NO
-                                    console.log(`[TouchMove] Finger ${playerFingerId} entered NO zone. Starting timer.`);
-                                    zoneHoldRef.current = { zone: 'no', startTime: now };
-                                } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в NO
-                                    console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no').`);
-                                    onTaskAction(playerFingerId, 'no');
-                                    zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
-                                }
-                                // Иначе: все еще удерживаем, но не достаточно долго
-                            } else { // Не в зоне YES и не в зоне NO
-                                if (currentHold.zone !== null) { // Только что вышли из зоны
-                                    console.log(`[TouchMove] Finger ${playerFingerId} exited zone ${currentHold.zone}. Resetting timer.`);
-                                    zoneHoldRef.current = { zone: null, startTime: null };
+
+                                // 2. Если вошли в новую зону - запустить новый интервал
+                                if (targetZone) {
+                                    const startTime = Date.now();
+                                    console.log(`[TouchMove] Finger ${playerFingerId} entered ${targetZone.toUpperCase()} zone. Starting interval.`);
+                                    const intervalId = setInterval(() => {
+                                        // Перепроверяем внутри интервала, что мы все еще в той же зоне
+                                        const currentCheckHold = zoneHoldRef.current;
+                                        if (currentCheckHold.zone === targetZone && currentCheckHold.startTime) {
+                                            if (Date.now() - currentCheckHold.startTime >= 2000) {
+                                                console.log(`[Interval] Finger ${playerFingerId} held in ${targetZone.toUpperCase()} zone for 2s. Calling onTaskAction('${targetZone}'). Interval ${currentCheckHold.intervalId}`);
+                                                onTaskAction(playerFingerId, targetZone);
+                                                clearInterval(currentCheckHold.intervalId); // Останавливаем интервал
+                                                zoneHoldRef.current = { zone: null, startTime: null, intervalId: null }; // Сбрасываем ref
+                                            }
+                                        } else {
+                                            // Если зона изменилась пока интервал работал - остановить его
+                                            console.log(`[Interval] Zone changed or startTime missing while interval ${currentCheckHold.intervalId} was running. Clearing.`);
+                                            clearInterval(currentCheckHold.intervalId);
+                                            // Дополнительно сбрасываем ref на всякий случай
+                                            zoneHoldRef.current = { zone: null, startTime: null, intervalId: null }; 
+                                        }
+                                    }, 100); // Проверяем каждые 100мс
+                                    // Сохраняем состояние в ref
+                                    zoneHoldRef.current = { zone: targetZone, startTime: startTime, intervalId: intervalId };
+                                } else {
+                                    // Если вышли из зоны (targetZone === null)
+                                    zoneHoldRef.current = { zone: null, startTime: null, intervalId: null };
                                 }
                             }
-                            // --- Конец логики удержания --- 
+                            // Если зона не менялась, интервал продолжает работать или не был запущен
+                            // -------------------------------------------------- 
                         }
                     }
                     // -------------------------------
@@ -354,7 +367,11 @@ function FingerPlacementArea({
          // --- Сброс таймера удержания, если палец поднят игроком задания --- 
          if (gameStatus === 'task_assigned' && activeTaskInfo && fingerId === activeTaskInfo.playerFingerId) {
            console.log(`[TouchEnd] Task player finger ${fingerId} lifted. Resetting hold timer.`);
-           zoneHoldRef.current = { zone: null, startTime: null };
+           if (zoneHoldRef.current.intervalId) {
+               console.log(`Clearing interval ${zoneHoldRef.current.intervalId} due to touch end.`);
+               clearInterval(zoneHoldRef.current.intervalId);
+           }
+           zoneHoldRef.current = { zone: null, startTime: null, intervalId: null };
          }
          // ------------------------------------------------------------------
       }
