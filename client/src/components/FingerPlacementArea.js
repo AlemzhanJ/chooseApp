@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './FingerPlacementArea.css';
 
+// --- Константы для свайпа ---
+const SWIPE_THRESHOLD_X = 50; // Минимальное смещение по X для свайпа (в пикселях)
+const SWIPE_MAX_DURATION = 500; // Максимальная длительность касания для свайпа (в мс)
+// -------------------------
+
 // Новый компонент FingerPlacementArea
 function FingerPlacementArea({
   expectedPlayers,
@@ -10,8 +15,12 @@ function FingerPlacementArea({
   onReadyToSelect,
   highlightedFingerId, // Теперь используем ID пальца, а не индекс
   isSelecting, // Для управления анимацией/состоянием
+  onSwipeAction, // НОВЫЙ ПРОП: обработчик свайпа (direction: 'left' | 'right', fingerId: number) => void
 }) {
   const [activeTouches, setActiveTouches] = useState([]); // { touchId: number, fingerId: number, x: number, y: number }
+  // --- Новое состояние для отслеживания начальных данных касания ---
+  const touchStartData = useRef(new Map()); // Map<touchId, { x: number, y: number, time: number }>
+  // -------------------------------------------------------------
   // --- Состояние и Ref для таймера автостарта --- 
   const [countdown, setCountdown] = useState(null); // null | number (секунды)
   const countdownTimerRef = useRef(null);
@@ -22,6 +31,9 @@ function FingerPlacementArea({
   const areaRef = useRef(null);
   const nextFingerId = useRef(0); // Для присвоения ID новым пальцам
   const fingerIdMap = useRef(new Map()); // Для отслеживания соответствия touchId -> fingerId
+  // --- Ref для отслеживания fingerId, выполняющего задание (если есть) ---
+  const taskPlayerFingerIdRef = useRef(null);
+  // --------------------------------------------------------------------
 
   // --- Обновляем Ref при изменении State --- 
   useEffect(() => {
@@ -36,14 +48,27 @@ function FingerPlacementArea({
        setActiveTouches([]);
        nextFingerId.current = 0;
        fingerIdMap.current.clear();
+       touchStartData.current.clear(); // Очищаем данные о начале касаний
      }
   }, [gameStatus]);
+
+  // --- Обновляем Ref с ID игрока, выполняющего задание ---
+  useEffect(() => {
+      if (gameStatus === 'task_assigned') {
+          const taskPlayer = gamePlayers?.find(p => p.taskStatus === 'pending'); // Ищем игрока с заданием
+          taskPlayerFingerIdRef.current = taskPlayer ? taskPlayer.fingerId : null;
+          console.log("Task assigned to fingerId:", taskPlayerFingerIdRef.current);
+      } else {
+          taskPlayerFingerIdRef.current = null; // Сбрасываем, если не та фаза
+      }
+  }, [gameStatus, gamePlayers]);
+  // ---------------------------------------------------
 
   // --- Вычисляем количество активных игроков, ожидаемых на экране --- 
   let calculatedExpectedCount;
   if (gameStatus === 'waiting' && (!gamePlayers || gamePlayers.length === 0)) {
       calculatedExpectedCount = expectedPlayers ?? 0;
-  } else {
+        } else {
       calculatedExpectedCount = gamePlayers?.filter(p => p.status === 'active').length ?? 0;
   }
   // ----------------------------------------------------------------
@@ -99,6 +124,9 @@ function FingerPlacementArea({
         updatedTouches.push(newTouch);
         fingerIdMap.current.set(touch.identifier, assignedFingerId); // Сохраняем связь
         currentFingerIds.add(assignedFingerId); // Добавляем в занятые
+        // --- Сохраняем начальные данные касания ---
+        touchStartData.current.set(touch.identifier, { x: coords.x, y: coords.y, time: Date.now() });
+        // ------------------------------------------
         console.log(`Finger added: ID ${assignedFingerId}, TouchID ${touch.identifier}`);
       }
     }
@@ -116,7 +144,7 @@ function FingerPlacementArea({
       // Создаем новый массив для обновления состояния
       const updatedTouches = prevTouches.map(touchInfo => {
           // Ищем соответствующее изменившееся касание
-          for (let i = 0; i < touches.length; i++) {
+        for (let i = 0; i < touches.length; i++) {
               const movedTouch = touches[i];
               if (movedTouch.identifier === touchInfo.touchId) {
                   const coords = getRelativeCoords(movedTouch);
@@ -140,17 +168,56 @@ function FingerPlacementArea({
     // e.preventDefault();
 
     const touches = e.changedTouches;
+    // --- ОБНОВЛЕННЫЙ handleTouchEnd с логикой свайпа ---
+    const timeNow = Date.now(); // Время окончания касания
 
     for (let i = 0; i < touches.length; i++) {
       const touch = touches[i];
+      const touchId = touch.identifier;
       // Находим ID пальца по ID касания
-      const fingerId = fingerIdMap.current.get(touch.identifier);
+      const fingerId = fingerIdMap.current.get(touchId);
+      // Получаем начальные данные касания
+      const startData = touchStartData.current.get(touchId);
 
       if (fingerId !== undefined) {
-         console.log(`Finger lifted: ID ${fingerId}, TouchID ${touch.identifier}`);
-         fingerIdMap.current.delete(touch.identifier); // Удаляем связь
+         console.log(`Finger lifted: ID ${fingerId}, TouchID ${touchId}`);
+         fingerIdMap.current.delete(touchId); // Удаляем связь
+         touchStartData.current.delete(touchId); // Удаляем начальные данные
+
+         // --- Логика определения свайпа во время задания ---
+         if (gameStatus === 'task_assigned' && startData && onSwipeAction) {
+             const coords = getRelativeCoords(touch); // Конечные координаты
+             if (coords) {
+                 const deltaX = coords.x - startData.x;
+                 const deltaTime = timeNow - startData.time;
+
+                 console.log(`[Swipe Check] FingerId: ${fingerId}, DeltaX: ${deltaX}, DeltaTime: ${deltaTime}`);
+
+                 // Проверяем условия свайпа
+                 if (deltaTime < SWIPE_MAX_DURATION) {
+                     if (deltaX > SWIPE_THRESHOLD_X) {
+                         // Свайп вправо ("Да")
+                         console.log(`Swipe Right detected for fingerId: ${fingerId}`);
+                         onSwipeAction('right', fingerId);
+                         // Прерываем дальнейшую обработку поднятия пальца, так как это было действие
+                         // setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touchId)); // Палец уже убран
+                         continue; // Переходим к следующему касанию в changedTouches
+                     } else if (deltaX < -SWIPE_THRESHOLD_X) {
+                         // Свайп влево ("Нет")
+                         console.log(`Swipe Left detected for fingerId: ${fingerId}`);
+                         onSwipeAction('left', fingerId);
+                         // Прерываем дальнейшую обработку поднятия пальца
+                         // setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touchId)); // Палец уже убран
+                         continue; // Переходим к следующему касанию в changedTouches
+                     }
+                 }
+             }
+         }
+         // --- Конец логики свайпа ---
+
+         // Если это не было свайпом или игра не в фазе задания:
          // Если палец поднят во время активной игры (не waiting), вызываем onFingerLift
-         if (gameStatus !== 'waiting' && gameStatus !== 'finished') {
+         if (gameStatus !== 'waiting' && gameStatus !== 'finished' && gameStatus !== 'task_assigned' /* Добавляем проверку, чтобы не вызывать lift после свайпа */) {
              onFingerLift(fingerId);
          }
          // Если палец убран во время отсчета (в статусе waiting), останавливаем таймер
@@ -160,11 +227,11 @@ function FingerPlacementArea({
              countdownTimerRef.current = null;
              setCountdown(null);
          }
-         // Удаляем касание из состояния
-         setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touch.identifier));
+         // Удаляем касание из состояния (если это не был свайп, где мы уже использовали continue)
+         setActiveTouches(prevTouches => prevTouches.filter(t => t.touchId !== touchId));
       }
     }
-  }, [onFingerLift, gameStatus]);
+  }, [onFingerLift, gameStatus, getRelativeCoords, onSwipeAction]);
 
   // --- Добавление/удаление обработчиков ---
   useEffect(() => {
@@ -304,9 +371,15 @@ function FingerPlacementArea({
       {isSelecting && (
           <div className="instructions selecting-text">Выбираем...</div>
       )}
-      {/* Сообщение, если игрок поднял палец во время выбора/задания */}
+      {/* --- Обновленное сообщение во время задания --- */}
        {gameStatus === 'task_assigned' && (
-           <div className="instructions task-active-text">Идет выполнение задания... Держите пальцы!</div>
+           <div className="instructions task-active-text">
+               Задание для #{taskPlayerFingerIdRef.current ?? '?'}:
+               <br/>
+               Держите пальцы!
+               <br/>
+               <span className="swipe-hint">Свайп ВПРАВО = Да, ВЛЕВО = Нет</span>
+           </div>
        )}
 
 

@@ -135,12 +135,12 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
 
     if (!game) {
         console.log(`Game not found: ${gameId}`);
-        return res.status(404).json({ msg: 'Game not found' });
+      return res.status(404).json({ msg: 'Game not found' });
     }
     console.log(`Game found. Current status: ${game.status}`);
     if (game.status !== 'selecting') {
         console.log(`Invalid game status: ${game.status}`);
-        return res.status(400).json({ msg: 'Game is not in selecting state' });
+      return res.status(400).json({ msg: 'Game is not in selecting state' });
     }
 
     const activePlayers = game.players.filter(p => p.status === 'active');
@@ -161,8 +161,8 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
     if (game.mode === 'simple') {
       console.log('Mode: simple. Setting status to finished.');
       game.status = 'finished';
-      const winner = game.players.find(p => p.fingerId === game.winnerFingerId);
-      if (winner) winner.status = 'winner';
+       const winner = game.players.find(p => p.fingerId === game.winnerFingerId);
+       if (winner) winner.status = 'winner';
       // gameToDelete = game.id; // <-- УДАЛЯЕМ немедленное удаление
 
     } else if (game.mode === 'tasks') {
@@ -179,24 +179,24 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
         }
       } else {
         console.log('Using DB tasks. Searching for tasks...');
-        const taskFilter = {};
+      const taskFilter = {};
         if (game.taskDifficulty !== 'any') taskFilter.difficulty = game.taskDifficulty;
-        const taskCount = await Task.countDocuments(taskFilter);
+      const taskCount = await Task.countDocuments(taskFilter);
         console.log(`Found ${taskCount} tasks in DB with filter:`, taskFilter);
-        if (taskCount > 0) {
-            const randomTaskIndex = Math.floor(Math.random() * taskCount);
+      if (taskCount > 0) {
+          const randomTaskIndex = Math.floor(Math.random() * taskCount);
             const randomTask = await Task.findOne(taskFilter).skip(randomTaskIndex);
             if (randomTask) {
-                game.currentTask = randomTask._id;
+          game.currentTask = randomTask._id;
                 console.log(`Assigned DB task ID: ${game.currentTask}`);
             } else {
                  console.log('Failed to fetch random task from DB.');
             }
-        } else {
+      } else {
             console.warn(`No tasks found in DB for difficulty: ${game.taskDifficulty}`);
             responsePayload.aiGeneratedTask = { text: `Задания сложности '${game.taskDifficulty}' не найдены в базе.`, difficulty: game.taskDifficulty, isAiGenerated: false, error: true };
-        }
       }
+    }
     }
 
     console.log('Attempting to save game changes...');
@@ -225,7 +225,7 @@ exports.selectWinnerOrTaskPlayer = async (req, res) => {
     console.error('Error Stack:', err.stack);
     // --- Конец улучшенного логирования --- 
     if (!res.headersSent) { // Проверяем, не был ли уже отправлен ответ
-      if (err.kind === 'ObjectId') {
+    if (err.kind === 'ObjectId') {
           res.status(404).json({ msg: 'Game not found (in catch block)' });
       } else {
           res.status(500).send('Server Error (in catch block)');
@@ -315,12 +315,12 @@ exports.updatePlayerStatus = async (req, res) => {
             if (action === 'complete_task' || (action === 'eliminate' && game.activePlayerCount > 0)) {
                  // После выполнения задания или если выбыл не последний игрок
                  // Проверяем, нужно ли завершать игру (даже после complete_task, если вдруг остался 1)
-                 if (game.eliminationEnabled && game.activePlayerCount === 1) {
-                     const winner = game.players.find(p => p.status === 'active');
-                     if (winner) {
-                         winner.status = 'winner';
-                         game.winnerFingerId = winner.fingerId;
-                         game.status = 'finished';
+        if (game.eliminationEnabled && game.activePlayerCount === 1) {
+            const winner = game.players.find(p => p.status === 'active');
+            if (winner) {
+                winner.status = 'winner';
+                game.winnerFingerId = winner.fingerId;
+                game.status = 'finished';
                          console.log(`Game finished after action ${action}. Winner: ${winner.fingerId}`);
                      } else { // Маловероятно, но возможно при race condition
                          game.status = 'finished';
