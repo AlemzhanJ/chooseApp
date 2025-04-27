@@ -39,6 +39,10 @@ function FingerPlacementArea({
   const actionZonesRef = useRef({ yes: null, no: null });
   // ----------------------------------------
 
+  // +++ Состояние для отладочной информации +++
+  const [debugInfo, setDebugInfo] = useState('');
+  // +++++++++++++++++++++++++++++++++++++++
+
   // --- Обновляем Ref при изменении State --- 
   useEffect(() => {
     activeTouchesRef.current = activeTouches;
@@ -263,24 +267,50 @@ function FingerPlacementArea({
                                     zoneHoldRef.current = { zone: 'yes', startTime: now };
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в YES
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in YES zone for 2s. Calling onTaskAction('yes').`);
+                                    // +++ Обновляем Debug Info перед вызовом +++
+                                    setDebugInfo(`Finger ${playerFingerId}: Held YES 2s! Action!`)
+                                    // +++++++++++++++++++++++++++++++++++++++
                                     onTaskAction(playerFingerId, 'yes');
                                     zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                } else if (currentHold.startTime) {
+                                    // +++ Обновляем Debug Info во время удержания +++
+                                    const timeHeld = now - currentHold.startTime;
+                                    setDebugInfo(`Finger ${playerFingerId}: Holding YES ${timeHeld}ms`);
+                                    // +++++++++++++++++++++++++++++++++++++++
                                 }
                                 // Иначе: все еще удерживаем, но не достаточно долго
                             } else if (newInNoZone) {
                                 if (currentHold.zone !== 'no') { // Только что вошли в NO
                                     console.log(`[TouchMove] Finger ${playerFingerId} entered NO zone. Starting timer.`);
+                                    // +++ Обновляем Debug Info при входе +++
+                                    setDebugInfo(`Finger ${playerFingerId}: Entered NO zone`);
+                                    // +++++++++++++++++++++++++++++++++++
                                     zoneHoldRef.current = { zone: 'no', startTime: now };
                                 } else if (currentHold.startTime && now - currentHold.startTime >= 2000) { // Удерживали 2с в NO
                                     console.log(`[TouchMove] Finger ${playerFingerId} held in NO zone for 2s. Calling onTaskAction('no').`);
+                                    // +++ Обновляем Debug Info перед вызовом +++
+                                    setDebugInfo(`Finger ${playerFingerId}: Held NO 2s! Action!`)
+                                    // +++++++++++++++++++++++++++++++++++++++
                                     onTaskAction(playerFingerId, 'no');
                                     zoneHoldRef.current = { zone: null, startTime: null }; // Сбрасываем таймер после действия
+                                } else if (currentHold.startTime) {
+                                    // +++ Обновляем Debug Info во время удержания +++
+                                    const timeHeld = now - currentHold.startTime;
+                                    setDebugInfo(`Finger ${playerFingerId}: Holding NO ${timeHeld}ms`);
+                                    // +++++++++++++++++++++++++++++++++++++++
                                 }
                                 // Иначе: все еще удерживаем, но не достаточно долго
                             } else { // Не в зоне YES и не в зоне NO
                                 if (currentHold.zone !== null) { // Только что вышли из зоны
                                     console.log(`[TouchMove] Finger ${playerFingerId} exited zone ${currentHold.zone}. Resetting timer.`);
+                                    // +++ Обновляем Debug Info при выходе +++
+                                    setDebugInfo(`Finger ${playerFingerId}: Exited zone ${currentHold.zone}. Reset.`);
+                                    // +++++++++++++++++++++++++++++++++++
                                     zoneHoldRef.current = { zone: null, startTime: null };
+                                } else {
+                                     // +++ Опционально: сообщаем, что палец вне зон +++
+                                     // setDebugInfo(`Finger ${playerFingerId}: Outside zones`);
+                                     // +++++++++++++++++++++++++++++++++++++++++++++
                                 }
                             }
                             // --- Конец логики удержания --- 
@@ -605,6 +635,24 @@ function FingerPlacementArea({
            </>
        )}
 
+      {/* +++ Отображение Debug Info +++ */} 
+      {activeTaskInfo && (
+          <div style={{
+              position: 'absolute',
+              bottom: '5px',
+              left: '5px',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              padding: '5px 8px',
+              fontSize: '10px',
+              borderRadius: '3px',
+              zIndex: 100, // Поверх других элементов
+              maxWidth: '90%' // Ограничим ширину
+          }}>
+              {debugInfo}
+          </div>
+      )}
+      {/* ++++++++++++++++++++++++++++ */} 
 
     </div>
   );
