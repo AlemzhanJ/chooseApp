@@ -302,7 +302,7 @@ exports.updatePlayerStatus = async (req, res) => {
                          console.log(`Game finished due to finger lift. No winner (draw).`);
                     }
                     game.status = 'finished';
-                    game.currentTask = null; // Очищаем задание, если было
+                    game.currentTask = null; // Очищаем задание
                 } else {
                    // Если игрок поднял палец во время выбора, а игра продолжается,
                    // нужно вернуть статус в 'waiting', чтобы выбор начался заново
@@ -317,7 +317,14 @@ exports.updatePlayerStatus = async (req, res) => {
                        // Если игрок, выполнявший задание, поднял палец, 
                        // то игра все равно вернется в 'waiting' после этой функции.
                        // Если палец поднял другой игрок, статус task_assigned остается.
-                       console.log('Finger lifted during task assignment phase.');
+                       // --- ИГРА ПРОДОЛЖАЕТСЯ ПОСЛЕ ПОДНЯТИЯ ПАЛЬЦА --- 
+                       // Независимо от того, был ли статус selecting или task_assigned,
+                       // если игра не закончилась, переходим к новому выбору.
+                       game.status = 'selecting'; 
+                       game.currentTask = null; // Очищаем задание, если было
+                       game.winnerFingerId = null; // Сбрасываем выбранного для нового раунда
+                       console.log('Finger lifted, game continues. Moving to selecting state.');
+                       // -----------------------------------------------------
                    }
                 }
             } else {
