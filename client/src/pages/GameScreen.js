@@ -601,40 +601,6 @@ function GameScreen() {
        )}
        {/* ----------------------------------------- */} 
 
-      {/* === GameScreen Debug Info === */}
-      <div style={{
-          position: 'absolute',
-          top: '5px',
-          right: '5px',
-          background: 'rgba(0, 0, 0, 0.6)',
-          color: '#00FF00', // Ярко-зеленый текст
-          padding: '5px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          zIndex: 2000, // Поверх feedback message
-          opacity: 0.8
-      }}>
-          <div style={{marginBottom: '3px', borderBottom: '1px solid #555'}}>
-             <b>Live State:</b><br />
-             Status: {gameData?.status ?? 'N/A'}<br />
-             Task Det: {currentTaskDetails ? `Exists (P${currentTaskDetails.playerFingerId})` : 'None'}<br />
-             Highlight: {highlightedFingerId ?? 'N/A'}
-          </div>
-          <div style={{marginBottom: '3px', borderBottom: '1px solid #555'}}>
-             <b>Selection Resp:</b><br />
-             Status: {debugSelectionResponse?.status ?? 'N/A'}<br />
-             WinnerID: {debugSelectionResponse?.winnerFingerId ?? 'N/A'}
-          </div>
-          <div>
-             <b>Last Update Resp:</b><br />
-             Status: {debugLastApiResponse?.status ?? 'N/A'}<br />
-             {debugLastApiResponse?.status === 'pending' && `Act: ${debugLastApiResponse.action} (P${debugLastApiResponse.fingerId})`}
-             {debugLastApiResponse?.status === 'success' && `Resp St: ${debugLastApiResponse.response?.status}, WinID: ${debugLastApiResponse.response?.winnerFingerId ?? 'N/A'}`}
-             {debugLastApiResponse?.status === 'error' && `Error: ${debugLastApiResponse.message}`}
-          </div>
-      </div>
-      {/* === End GameScreen Debug Info === */}
-
       {renderGameContent()}
     </div>
   );

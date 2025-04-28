@@ -624,35 +624,6 @@ function FingerPlacementArea({
            </>
        )}
 
-      {/* === Debug Info === */}
-      <div style={{
-          position: 'absolute',
-          bottom: '5px',
-          left: '5px',
-          background: 'rgba(0, 0, 0, 0.6)',
-          color: 'white',
-          padding: '8px',
-          borderRadius: '4px',
-          fontSize: '10px',
-          zIndex: 100, // Поверх всего
-          maxWidth: 'calc(100% - 10px)',
-          opacity: 0.8
-      }}>
-          <pre style={{margin: 0, whiteSpace: 'pre-wrap'}}>
-              {`Status: ${gameStatus}`}<br />
-              {`Task Player: ${activeTaskInfo?.playerFingerId ?? 'N/A'}`}<br />
-              {(() => {
-                  const taskPlayerTouch = activeTouches.find(t => activeTaskInfo && t.fingerId === activeTaskInfo.playerFingerId);
-                  if (!taskPlayerTouch) return 'Task Touch: N/A';
-                  return `Touch Zones: YES=${taskPlayerTouch.inYesZone}, NO=${taskPlayerTouch.inNoZone}`;
-              })()}<br />
-              {`Hold Zone: ${zoneHoldRef.current.zone ?? '-'}`}<br />
-              {`Hold Start: ${zoneHoldRef.current.startTime ? new Date(zoneHoldRef.current.startTime).toLocaleTimeString() : '-'}`}<br />
-              {`Time Held: ${zoneHoldRef.current.startTime ? ((Date.now() - zoneHoldRef.current.startTime) / 1000).toFixed(1) + 's' : '-'}`}
-          </pre>
-      </div>
-      {/* === End Debug Info === */}
-
     </div>
   );
 }
