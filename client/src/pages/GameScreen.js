@@ -83,18 +83,28 @@ function GameScreen() {
       console.log(`GameScreen: handleFingerLift called for fingerId: ${liftedFingerId}`);
       // Игру не трогаем, если она уже завершена или если палец поднят в состоянии waiting (когда таймер еще не пошел)
       // Также игнорируем, если идет задание и палец принадлежит исполнителю задания (он должен быть на месте)
-      if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting' ||
-          (gameData.status === 'task_assigned' && currentTaskDetails?.playerFingerId === liftedFingerId)) {
-          console.log(`GameScreen: Ignoring finger lift in status: ${gameData?.status} or for task player: ${liftedFingerId}`);
+      // --- Убираем игнорирование для игрока задания --- 
+      if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting') { 
+      // if (!gameData || gameData.status === 'finished' || gameData.status === 'waiting' ||
+      //     (gameData.status === 'task_assigned' && currentTaskDetails?.playerFingerId === liftedFingerId)) { // <-- Старая проверка
+          console.log(`GameScreen: Ignoring finger lift in status: ${gameData?.status}`);
           return;
       }
+      // ---------------------------------------------
 
       // Проверяем, был ли этот игрок активен (избегаем двойного вызова)
-      const player = gameData.players.find(p => p.fingerId === liftedFingerId);
-      if (!player || player.status !== 'active') {
-          console.log(`GameScreen: Ignoring finger lift for non-active player: ${liftedFingerId}, status: ${player?.status}`);
-          return; // Игрок уже неактивен
+      // --- Добавляем проверку, что игрок существует в gameData.players ---
+      const player = gameData.players?.find(p => p.fingerId === liftedFingerId);
+      // if (!player || player.status !== 'active') { // <-- Старая проверка
+      if (!player) { // Если игрок вообще не найден
+          console.log(`GameScreen: Ignoring finger lift for non-existent player: ${liftedFingerId}`);
+          return;
       }
+      if (player.status !== 'active') { // Если игрок найден, но не активен
+           console.log(`GameScreen: Ignoring finger lift for non-active player: ${liftedFingerId}, status: ${player.status}`);
+           return; // Игрок уже неактивен
+      }
+      // ------------------------------------------------------------------
 
       // Показываем временный лоадер/сообщение
       // setLoading(true); // Возможно, лоадер здесь не нужен, т.к. обновление быстрое

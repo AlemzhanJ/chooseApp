@@ -330,15 +330,10 @@ function FingerPlacementArea({
          // Если палец поднят во время активной игры (не waiting), вызываем onFingerLift
          // Включаем сюда и task_assigned, И если это палец не назначенного игрока,
          // ИЛИ если это палец назначенного, но режим БЕЗ немедленного вылета (eliminationEnabled=false)
+          // --- Упрощаем: вызываем onFingerLift всегда, когда статус не waiting и не finished --- 
          if (gameStatus !== 'waiting' && gameStatus !== 'finished') {
-              // Вызываем onFingerLift, если это НЕ палец активного задания ИЛИ если вылет не включен
-              if (!activeTaskInfo || fingerId !== activeTaskInfo.playerFingerId || !activeTaskInfo.eliminationEnabled) {
-                  console.log(`Calling onFingerLift for finger ${fingerId}`);
-                  onFingerLift(fingerId);
-              } else {
-                   // Если это палец задания и включен вылет, GameScreen сам обработает это через feedbackMessage/статус
-                  console.log(`Finger ${fingerId} (task player) lifted, eliminationEnabled=${activeTaskInfo.eliminationEnabled}. onFingerLift NOT called from here.`);
-              }
+             console.log(`Finger ${fingerId} lifted during active game state (${gameStatus}). Calling onFingerLift.`);
+             onFingerLift(fingerId); // Вызываем всегда для активных статусов
          }
          // Если палец убран во время отсчета (в статусе waiting), останавливаем таймер
          if (gameStatus === 'waiting' && countdownTimerRef.current) {
