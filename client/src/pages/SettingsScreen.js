@@ -11,7 +11,7 @@ function SettingsScreen() {
   const navigate = useNavigate();
   const [numPlayers, setNumPlayers] = useState(2); // По умолчанию 2 игрока
   const [mode, setMode] = useState('simple'); // ('simple' | 'tasks')
-  const [eliminationEnabled, setEliminationEnabled] = useState(false);
+  const [isTimedMode, setIsTimedMode] = useState(false); // Новый стейт для режима на время
   const [taskDifficulty, setTaskDifficulty] = useState('any'); // ('easy', 'medium', 'hard', 'any')
   const [useAiTasks, setUseAiTasks] = useState(false); // <--- Добавлено состояние для AI
   const [taskTimeLimit, setTaskTimeLimit] = useState(30); // <--- Добавлено состояние для времени (в секундах)
@@ -28,11 +28,11 @@ function SettingsScreen() {
       mode,
       // Передаем настройки только для режима 'tasks'
       ...(mode === 'tasks' && { 
-          eliminationEnabled, 
+          eliminationEnabled: true, // Всегда включено для режима с заданиями
           taskDifficulty, 
           useAiTasks,
-          // Добавляем время, только если выбывание включено
-          ...(eliminationEnabled && { taskTimeLimit: parseInt(taskTimeLimit, 10) || 30 }) // <--- Передаем время
+          // Добавляем время, только если включен режим на время
+          ...(isTimedMode && { taskTimeLimit: parseInt(taskTimeLimit, 10) || 30 })
       }),
     };
 
@@ -114,20 +114,21 @@ function SettingsScreen() {
               </label>
             </div>
 
-            <div className="form-group checkbox-group">
-              <label htmlFor="eliminationEnabled">
+            {/* Заменяем чекбокс выбывания на чекбокс режима на время */}
+            <div className="form-group checkbox-group timed-mode-checkbox">
+              <label htmlFor="isTimedMode">
                 <input
                   type="checkbox"
-                  id="eliminationEnabled"
-                  checked={eliminationEnabled}
-                  onChange={(e) => setEliminationEnabled(e.target.checked)}
+                  id="isTimedMode"
+                  checked={isTimedMode}
+                  onChange={(e) => setIsTimedMode(e.target.checked)}
                 />
-                Включить выбывание
+                ⏱️ Ограничить время на задание?
               </label>
             </div>
 
-            {/* Поле для ввода времени, появляется только если включено выбывание */}
-            {eliminationEnabled && (
+            {/* Поле для ввода времени, появляется только если включен режим на время */}
+            {isTimedMode && (
                  <div className="form-group">
                     <label htmlFor="taskTimeLimit">Время на задание (сек):</label>
                     <input
@@ -137,7 +138,7 @@ function SettingsScreen() {
                       max="300" // Максимум 5 минут
                       value={taskTimeLimit}
                       onChange={(e) => setTaskTimeLimit(e.target.value)}
-                      required // Делаем обязательным, если выбывание включено
+                      required // Делаем обязательным, если включен режим на время
                     />
                  </div>
             )}

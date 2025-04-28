@@ -12,7 +12,6 @@ exports.createGame = async (req, res) => {
     const { 
         numPlayers, 
         mode, 
-        eliminationEnabled, 
         taskDifficulty, 
         useAiTasks, 
         taskTimeLimit // <--- Достаем лимит времени
@@ -32,11 +31,11 @@ exports.createGame = async (req, res) => {
     
     // Добавляем настройки специфичные для режима 'tasks'
     if (mode === 'tasks') {
-        newGameData.eliminationEnabled = eliminationEnabled === true;
+        newGameData.eliminationEnabled = true;
         newGameData.taskDifficulty = taskDifficulty || 'any';
         newGameData.useAiTasks = useAiTasks === true;
-        // Сохраняем лимит времени только если он передан и выбывание включено
-        if (eliminationEnabled === true && taskTimeLimit && Number.isInteger(taskTimeLimit) && taskTimeLimit > 0) {
+        // Сохраняем лимит времени только если он передан и валиден
+        if (taskTimeLimit && Number.isInteger(taskTimeLimit) && taskTimeLimit > 0) {
             newGameData.taskTimeLimit = taskTimeLimit;
         } else {
              newGameData.taskTimeLimit = null; // Явно ставим null, если не используется
