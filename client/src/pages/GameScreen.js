@@ -493,6 +493,24 @@ function GameScreen() {
   }, [gameId]); // Добавляем зависимость gameId
   // --------------------------------------
 
+  // --- Эффект для синхронизации isSelecting с gameData.status ---
+  useEffect(() => {
+     if (gameData?.status === 'selecting') {
+       if (!isSelecting) { // Только если еще не в процессе выбора
+         console.log("Game status is 'selecting', setting isSelecting = true to start animation.");
+         setIsSelecting(true);
+       }
+     } else {
+       if (isSelecting) { // Только если были в процессе выбора
+         console.log(`Game status changed to ${gameData?.status}, setting isSelecting = false.`);
+         setIsSelecting(false);
+       }
+     }
+     // Не добавляем isSelecting в зависимости, чтобы избежать лишних циклов
+     // eslint-disable-next-line react-hooks/exhaustive-deps 
+   }, [gameData?.status]);
+   // ---------------------------------------------------------
+
   if (error) {
     return <div className="game-container status-message error-message">Ошибка: {error}</div>;
   }

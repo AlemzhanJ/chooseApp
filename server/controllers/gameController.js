@@ -347,17 +347,20 @@ exports.updatePlayerStatus = async (req, res) => {
                          console.log(`Game finished after action ${action}. No winner.`);
                      }
                  } else if (game.eliminationEnabled && game.activePlayerCount < 1) {
-                      game.status = 'finished'; // Ничья
-                      game.winnerFingerId = null;
+                      game.status = 'finished';
+                      game.winnerFingerId = null; // Ничья
                       console.log(`Game finished after action ${action}. Draw.`);
                  } else {
                      // Если игра продолжается (больше 1 игрока или выбывание отключено)
-                     game.status = 'waiting'; // Возвращаем в ожидание для след. раунда/выбора
-                     console.log(`Action ${action} completed. Returning to waiting state.`);
+                     // СРАЗУ переходим к следующему выбору
+                     game.status = 'selecting'; 
+                     console.log(`Action ${action} completed. Moving to selecting state.`);
                  }
                  game.currentTask = null;
-                 // game.winnerFingerId = null; // Не сбрасываем, если только что определили победителя
-                 if (game.status === 'waiting') game.winnerFingerId = null; // Сбрасываем только если перешли в waiting
+                 // Сбрасываем winnerFingerId при переходе к выбору или ничьей
+                 if (game.status === 'selecting' || (game.status === 'finished' && game.activePlayerCount < 1)) {
+                     game.winnerFingerId = null; 
+                 }
 
             } else if (action === 'eliminate' && game.activePlayerCount <= 0 && game.eliminationEnabled) {
                 // Все выбыли (ничья)
