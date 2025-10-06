@@ -1,13 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap');
+
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  font-family: 'Nunito', sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Poppins', sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #FBFCFC;
-  color: #34495E;
+  color: #2c3e50;
+  line-height: 1.6;
 }
 
 code {
@@ -17,4 +22,13 @@ code {
 
 h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
+    margin: 0 0 1rem 0;
+}
+
+button {
+    font-family: inherit;
+}
+
+html {
+    scroll-behavior: smooth;
 }
