@@ -73,19 +73,62 @@
 }
 
 .start-buttons {
-  margin-top: 20px;
+  margin-top: 30px;
   display: flex;
-  flex-direction: column; /* Кнопки друг под другом на мобильных */
-  gap: 15px; 
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
 }
 
-/* Стили для кнопок теперь берутся из Button.css */
-/* Удаляем старые стили .start-button, .settings-button */
+.start-button, .settings-button {
+  padding: 16px 32px !important;
+  font-size: 1.1em !important;
+  font-weight: 600 !important;
+  border-radius: 16px !important;
+  border: none !important;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
 
-/* Добавляем медиа-запрос для больших экранов, чтобы кнопки были в ряд */
+.start-button {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  color: white !important;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4) !important;
+}
+
+.start-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px rgba(102, 126, 234, 0.6) !important;
+}
+
+.settings-button {
+  background: linear-gradient(135deg, #f093fb, #f5576c) !important;
+  color: white !important;
+  box-shadow: 0 8px 20px rgba(245, 87, 108, 0.4) !important;
+}
+
+.settings-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 30px rgba(245, 87, 108, 0.6) !important;
+}
+
+.start-button:active, .settings-button:active {
+  transform: translateY(0) !important;
+}
+
 @media (min-width: 600px) {
     .start-buttons {
-        flex-direction: row; /* Возвращаем кнопки в ряд */
+        flex-direction: row;
         gap: 25px;
+        justify-content: center;
+    }
+    
+    .start-button, .settings-button {
+        flex: 1;
+        max-width: 200px;
     }
 } 
